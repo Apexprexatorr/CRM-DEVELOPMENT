@@ -1,59 +1,42 @@
 <?php
-require '../../main.inc.php';
-require_once DOL_DOCUMENT_ROOT . '/custom/foodbankcrm/class/beneficiary.class.php';
+// Include Dolibarr's main.inc.php file to load the environment
+require_once dirname(__DIR__, 4) . '/main.inc.php'; // Absolute path from the current file
 
-$langs->load("foodbankcrm@foodbankcrm");
-llxHeader('', $langs->trans("Beneficiaries"));
+// Include the Beneficiary class from the correct path
+require_once dirname(__DIR__, 3) . '/foodbankcrm/class/beneficiary.class.php'; // Correct path to the Beneficiary class
 
-$action = GETPOST('action','alpha');
-$bf = new Beneficiary($db);
+$langs->load("admin");
+llxHeader();
 
-// Create
-if ($action === 'create') {
-    $bf->ref = 'BEN-'.time();
-    $bf->firstname = GETPOST('firstname','alpha');
-    $bf->lastname = GETPOST('lastname','alpha');
-    $bf->phone = GETPOST('phone','alpha');
-    $bf->email = GETPOST('email','alpha');
-    $bf->address = GETPOST('address','alpha');
-    $bf->note = GETPOST('note','alpha');
-    $res = $bf->create();
-    if ($res) setEventMessage("Beneficiary created");
-    else setEventMessages($bf->errors, 'errors');
-}
+// Your business logic for listing beneficiaries
+$beneficiary = new Beneficiary($db);
+$sql = "SELECT * FROM " . MAIN_DB_PREFIX . "foodbank_beneficiaries";
+$res = $db->query($sql);
 
-// Listing
-$sql = "SELECT * FROM ".MAIN_DB_PREFIX."foodbank_beneficiaries ORDER BY rowid DESC LIMIT 200";
-$resql = $db->query($sql);
+if ($res) {
+    print '<h2>Beneficiaries</h2>';
+    print '<table class="noborder" width="100%">';
+    print '<tr><th>Ref</th><th>First Name</th><th>Last Name</th><th>Phone</th><th>Email</th><th>Actions</th></tr>';
 
-print '<h2>Beneficiaries</h2>';
-print '<a href="?action=new">Create beneficiary</a>';
-
-if ($action === 'new') {
-    print '<form method="post">';
-    print '<input type="hidden" name="action" value="create">';
-    print 'First name: <input name="firstname"><br>';
-    print 'Last name: <input name="lastname"><br>';
-    print 'Phone: <input name="phone"><br>';
-    print 'Email: <input name="email"><br>';
-    print 'Address: <input name="address"><br>';
-    print 'Note: <textarea name="note"></textarea><br>';
-    print '<button type="submit">Create</button>';
-    print '</form>';
-}
-
-print '<table border="1" cellpadding="5"><thead><tr><th>ID</th><th>Ref</th><th>Name</th><th>Phone</th><th>Email</th></tr></thead><tbody>';
-if ($resql) {
-    while ($row = $db->fetch_object($resql)) {
+    while ($obj = $db->fetch_object($res)) {
         print '<tr>';
-        print '<td>'.$row->rowid.'</td>';
-        print '<td>'.$row->ref.'</td>';
-        print '<td>'.$row->firstname.' '.$row->lastname.'</td>';
-        print '<td>'.$row->phone.'</td>';
-        print '<td>'.$row->email.'</td>';
+        print '<td>' . $obj->ref . '</td>';
+        print '<td>' . $obj->firstname . '</td>';
+        print '<td>' . $obj->lastname . '</td>';
+        print '<td>' . $obj->phone . '</td>';
+        print '<td>' . $obj->email . '</td>';
+        print '<td>';
+        print '<a href="edit_beneficiary.php?id=' . $obj->rowid . '">Edit</a>';
+        print ' | ';
+        print '<a href="delete_beneficiary.php?id=' . $obj->rowid . '">Delete</a>';
+        print '</td>';
         print '</tr>';
     }
+
+    print '</table>';
+} else {
+    print '<p>No beneficiaries found.</p>';
 }
-print '</tbody></table>';
 
 llxFooter();
+?>
