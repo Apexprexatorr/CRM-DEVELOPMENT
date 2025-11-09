@@ -18,9 +18,23 @@ CREATE TABLE IF NOT EXISTS llx_foodbank_vendors (
   rowid INT AUTO_INCREMENT PRIMARY KEY,
   ref VARCHAR(64) NOT NULL,
   name VARCHAR(255),
+  contact_person VARCHAR(255),
   phone VARCHAR(50),
   email VARCHAR(255),
   address VARCHAR(255),
+  note TEXT,
+  entity INT DEFAULT 1,
+  datec DATETIME DEFAULT CURRENT_TIMESTAMP,
+  tms TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- llx_foodbank_warehouses
+CREATE TABLE IF NOT EXISTS llx_foodbank_warehouses (
+  rowid INT AUTO_INCREMENT PRIMARY KEY,
+  ref VARCHAR(64) NOT NULL,
+  label VARCHAR(255),
+  address VARCHAR(255),
+  capacity INT DEFAULT 0,
   note TEXT,
   entity INT DEFAULT 1,
   datec DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -42,7 +56,9 @@ CREATE TABLE IF NOT EXISTS llx_foodbank_donations (
   datec DATETIME DEFAULT CURRENT_TIMESTAMP,
   tms TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX (fk_vendor),
-  INDEX (fk_beneficiary)
+  INDEX (fk_beneficiary),
+  FOREIGN KEY (fk_vendor) REFERENCES llx_foodbank_vendors(rowid) ON DELETE RESTRICT,
+  FOREIGN KEY (fk_beneficiary) REFERENCES llx_foodbank_beneficiaries(rowid) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- llx_foodbank_distributions
@@ -56,18 +72,8 @@ CREATE TABLE IF NOT EXISTS llx_foodbank_distributions (
   note TEXT,
   entity INT DEFAULT 1,
   datec DATETIME DEFAULT CURRENT_TIMESTAMP,
-  tms TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- llx_foodbank_warehouses
-CREATE TABLE IF NOT EXISTS llx_foodbank_warehouses (
-  rowid INT AUTO_INCREMENT PRIMARY KEY,
-  ref VARCHAR(64) NOT NULL,
-  label VARCHAR(255),
-  address VARCHAR(255),
-  capacity INT DEFAULT 0,
-  note TEXT,
-  entity INT DEFAULT 1,
-  datec DATETIME DEFAULT CURRENT_TIMESTAMP,
-  tms TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  tms TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (fk_beneficiary) REFERENCES llx_foodbank_beneficiaries(rowid) ON DELETE RESTRICT,
+  FOREIGN KEY (fk_warehouse) REFERENCES llx_foodbank_warehouses(rowid) ON DELETE RESTRICT,
+  FOREIGN KEY (fk_user) REFERENCES llx_user(rowid) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

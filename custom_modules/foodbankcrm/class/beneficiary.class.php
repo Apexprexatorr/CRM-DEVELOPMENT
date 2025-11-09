@@ -1,12 +1,13 @@
 <?php
-// Minimal Beneficiary class
+// htdocs/custom/foodbankcrm/class/beneficiary.class.php
+
 require_once DOL_DOCUMENT_ROOT . '/core/class/commonobject.class.php';
 
 class Beneficiary extends CommonObject
 {
+    public $element       = 'foodbank_beneficiary';
     public $table_element = 'foodbank_beneficiaries';
-    public $element = 'beneficiary';
-    public $table = 'llx_foodbank_beneficiaries';
+    public $picto         = 'user';
 
     public $id;
     public $ref;
@@ -16,48 +17,123 @@ class Beneficiary extends CommonObject
     public $email;
     public $address;
     public $note;
+    public $entity;
 
     public function __construct($db)
     {
         $this->db = $db;
+        $this->entity = isset($conf->entity) ? $conf->entity : 1;
     }
 
-    public function create()
+    // EXACT SAME AS DONATIONFB
+    public function create($user = null, $notrigger = false)
     {
-        $now = date('Y-m-d H:i:s');
-        $sql = "INSERT INTO " . MAIN_DB_PREFIX . "foodbank_beneficiaries (ref, firstname, lastname, phone, email, address, note, datec, entity)
-                VALUES ('".$this->db->escape($this->ref)."', '".$this->db->escape($this->firstname)."', '".$this->db->escape($this->lastname)."', '".$this->db->escape($this->phone)."', '".$this->db->escape($this->email)."', '".$this->db->escape($this->address)."', '".$this->db->escape($this->note)."', '".$now."', ".(int)$GLOBALS['conf']->entity.")";
-        $res = $this->db->query($sql);
-        if ($res) {
-            $this->id = $this->db->last_insert_id(MAIN_DB_PREFIX . "foodbank_beneficiaries");
+        if (empty($this->ref)) {
+            $this->ref = $this->getNextRef();
+        }
+
+        $this->db->begin();
+
+        $sql = "INSERT INTO ".MAIN_DB_PREFIX.$this->table_element." (";
+        $sql.= "ref, firstname, lastname, phone, email, address, note, entity, datec";
+        $sql.= ") VALUES (";
+        $sql.= "'".$this->db->escape($this->ref)."', ";
+        $sql.= "'".$this->db->escape($this->firstname)."', ";
+        $sql.= "'".$this->db->escape($this->lastname)."', ";
+        $sql.= "'".$this->db->escape($this->phone)."', ";
+        $sql.= "'".$this->db->escape($this->email)."', ";
+        $sql.= "'".$this->db->escape($this->address)."', ";
+        $sql.= "'".$this->db->escape($this->note)."', ";
+        $sql.= (int)$this->entity.", ";
+        $sql.= "NOW()";
+        $sql.= ")";
+
+        if ($this->db->query($sql)) {
+            $this->id = $this->db->last_insert_id(MAIN_DB_PREFIX.$this->table_element);
+            $this->db->commit();
             return $this->id;
         }
-        $this->errors[] = $this->db->lasterror();
-        return false;
+
+        $this->error = $this->db->lasterror();
+        $this->db->rollback();
+        return -1;
     }
 
     public function fetch($id)
     {
-        $sql = "SELECT * FROM " . MAIN_DB_PREFIX . "foodbank_beneficiaries WHERE rowid=" . (int)$id;
+        $sql = "SELECT * FROM ".MAIN_DB_PREFIX.$this->table_element." WHERE rowid = ".(int)$id;
         $res = $this->db->query($sql);
-        if ($res && $this->db->num_rows($res) > 0) {
-            $obj = $this->db->fetch_object($res);
-            $this->id = $obj->rowid;
-            $this->ref = $obj->ref;
-            $this->firstname = $obj->firstname;
-            $this->lastname = $obj->lastname;
-            $this->phone = $obj->phone;
-            $this->email = $obj->email;
-            $this->address = $obj->address;
-            $this->note = $obj->note;
-            return true;
+        if ($res && ($o = $this->db->fetch_object($res))) {
+            $this->id        = (int)$o->rowid;
+            $this->ref       = $o->ref;
+            $this->firstname = $o->firstname;
+            $this->lastname  = $o->lastname;
+            $this->phone     = $o->phone;
+            $this->email     = $o->email;
+            $this->address   = $o->address;
+            $this->note      = $o->note;
+            $this->entity    = (int)$o->entity;
+            return 1;
         }
-        return false;
+        return 0;
     }
 
-    public function delete($id)
+    public function update($user = null, $notrigger = false)
     {
-        $sql = "DELETE FROM " . MAIN_DB_PREFIX . "foodbank_beneficiaries WHERE rowid=" . (int)$id;
-        return $this->db->query($sql);
+        if (empty($this->id)) return -1;
+
+        $this->db->begin();
+
+        $sql = "UPDATE ".MAIN_DB_PREFIX.$this->table_element." SET ";
+        $sql.= "ref = '".$this->db->escape($this->ref)."', ";
+        $sql.= "firstname = '".$this->db->escape($this->firstname)."', ";
+        $sql.= "lastname = '".$this->db->escape($this->lastname)."', ";
+        $sql.= "phone = '".$this->db->escape($this->phone)."', ";
+        $sql.= "email = '".$this->db->escape($this->email)."', ";
+        $sql.= "address = '".$this->db->escape($this->address)."', ";
+        $sql.= "note = '".$this->db->escape($this->note)."', ";
+        $sql.= "tms = NOW() ";
+        $sql.= "WHERE rowid = ".(int)$this->id;
+
+        if ($this->db->query($sql)) {
+            $this->db->commit();
+            return 1;
+        }
+
+        $this->error = $this->db->lasterror();
+        $this->db->rollback();
+        return -1;
+    }
+
+    public function delete($user = null, $notrigger = false)
+    {
+        if (empty($this->id)) return -1;
+
+        $this->db->begin();
+        $sql = "DELETE FROM ".MAIN_DB_PREFIX.$this->table_element." WHERE rowid = ".(int)$this->id;
+
+        if ($this->db->query($sql)) {
+            $this->db->commit();
+            return 1;
+        }
+
+        $this->error = $this->db->lasterror();
+        $this->db->rollback();
+        return -1;
+    }
+
+    public function getNextRef()
+    {
+        $sql = "SELECT MAX(CAST(SUBSTRING(ref, 9) AS UNSIGNED)) as lastnum";
+        $sql.= " FROM ".MAIN_DB_PREFIX.$this->table_element;
+        $sql.= " WHERE ref LIKE 'BEN".date('Y')."%' AND entity = ".(int)$this->entity;
+
+        $resql = $this->db->query($sql);
+        if ($resql && ($obj = $this->db->fetch_object($resql))) {
+            $next = ($obj->lastnum ? $obj->lastnum + 1 : 1);
+        } else {
+            $next = 1;
+        }
+        return 'BEN'.date('Y').'-'.sprintf('%04d', $next);
     }
 }
