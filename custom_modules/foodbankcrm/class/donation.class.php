@@ -1,5 +1,4 @@
 <?php
-// /custom/foodbankcrm/class/donation.class.php
 require_once DOL_DOCUMENT_ROOT . '/core/class/commonobject.class.php';
 
 class DonationFB extends CommonObject
@@ -10,12 +9,13 @@ class DonationFB extends CommonObject
 
     public $id;
     public $ref;
-    public $fk_vendor;        // llx_foodbank_vendors.rowid
-    public $fk_beneficiary;   // llx_foodbank_beneficiaries.rowid
+    public $fk_vendor;
+    public $fk_beneficiary;
     public $label;
     public $quantity;
     public $unit;
-    public $date_donation;    // timestamp/datetime
+    public $status;           // ← ADD THIS
+    public $date_donation;
     public $note;
     public $entity;
 
@@ -23,18 +23,18 @@ class DonationFB extends CommonObject
     {
         $this->db = $db;
         $this->entity = isset($GLOBALS['conf']->entity) ? (int) $GLOBALS['conf']->entity : 1;
+        $this->status = 'Pending'; // ← ADD THIS (default)
     }
 
     public function create($user = null, $notrigger = false)
     {
-        // Auto-generate ref if not provided
         if (empty($this->ref)) {
             $this->ref = $this->getNextRef();
         }
 
         $this->db->begin();
         $sql = "INSERT INTO ".MAIN_DB_PREFIX.$this->table_element."(".
-               "ref, fk_vendor, fk_beneficiary, label, quantity, unit, date_donation, entity, note, datec".
+               "ref, fk_vendor, fk_beneficiary, label, quantity, unit, status, date_donation, entity, note, datec".  // ← ADD status
                ") VALUES (".
                "'".$this->db->escape($this->ref)."',".
                (int)$this->fk_vendor.",".
@@ -42,6 +42,7 @@ class DonationFB extends CommonObject
                "'".$this->db->escape($this->label)."',".
                (int)$this->quantity.",".
                "'".$this->db->escape($this->unit)."',".
+               "'".$this->db->escape($this->status)."',".  // ← ADD THIS
                ($this->date_donation ? "'".$this->db->escape($this->date_donation)."'" : "NOW()").",".
                (int)$this->entity.",".
                "'".$this->db->escape($this->note)."',".
@@ -69,6 +70,7 @@ class DonationFB extends CommonObject
             $this->label         = $o->label;
             $this->quantity      = (int)$o->quantity;
             $this->unit          = $o->unit;
+            $this->status        = $o->status;  // ← ADD THIS
             $this->date_donation = $o->date_donation;
             $this->note          = $o->note;
             $this->entity        = (int)$o->entity;
@@ -88,6 +90,7 @@ class DonationFB extends CommonObject
                "label='".$this->db->escape($this->label)."',".
                "quantity=".(int)$this->quantity.",".
                "unit='".$this->db->escape($this->unit)."',".
+               "status='".$this->db->escape($this->status)."',".  // ← ADD THIS
                "date_donation=".($this->date_donation ? "'".$this->db->escape($this->date_donation)."'" : "date_donation").",".
                "note='".$this->db->escape($this->note)."',".
                "tms=NOW() ".
@@ -109,10 +112,6 @@ class DonationFB extends CommonObject
         return -1;
     }
 
-    /**
-     * Auto-generate next donation reference
-     * Format: DON2025-0001
-     */
     public function getNextRef()
     {
         $sql = "SELECT MAX(rowid) as maxid FROM ".MAIN_DB_PREFIX.$this->table_element;
@@ -122,7 +121,6 @@ class DonationFB extends CommonObject
             $next = sprintf("DON%s-%04d", date("Y"), ($obj->maxid ?? 0) + 1);
             return $next;
         }
-        // Fallback if query fails
         return "DON".date("Y")."-".sprintf("%04d", rand(1, 9999));
     }
 }

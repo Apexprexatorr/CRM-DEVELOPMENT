@@ -1,6 +1,7 @@
 <?php
 require_once dirname(__DIR__, 4) . '/main.inc.php'; 
 require_once dirname(__DIR__, 3) . '/foodbankcrm/class/vendor.class.php'; 
+require_once dirname(__DIR__, 3) . '/foodbankcrm/class/vendorproduct.class.php';
 
 $langs->load("admin");
 llxHeader();
@@ -21,7 +22,43 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         $res = $v->create($user);
         if ($res > 0) {
-            $notice = '<div class="ok">Vendor created successfully! Ref: '.$v->ref.' (ID: '.$res.')</div>';
+            // Vendor created successfully, now add products
+            $products_added = 0;
+            $products_failed = 0;
+            
+            // Check if products were submitted
+            if (!empty($_POST['product_name']) && is_array($_POST['product_name'])) {
+                foreach ($_POST['product_name'] as $index => $product_name) {
+                    // Skip empty product names
+                    if (empty(trim($product_name))) continue;
+                    
+                    $vp = new VendorProduct($db);
+                    $vp->fk_vendor = $res; // The vendor ID we just created
+                    $vp->product_name = trim($product_name);
+                    $vp->unit = !empty($_POST['product_unit'][$index]) ? $_POST['product_unit'][$index] : 'kg';
+                    $vp->typical_quantity = !empty($_POST['product_quantity'][$index]) ? $_POST['product_quantity'][$index] : null;
+                    $vp->status = 'Active';
+                    
+                    if ($vp->create($user) > 0) {
+                        $products_added++;
+                    } else {
+                        $products_failed++;
+                    }
+                }
+            }
+            
+            $notice = '<div class="ok">Vendor created successfully! Ref: '.$v->ref.' (ID: '.$res.')';
+            if ($products_added > 0) {
+                $notice .= '<br>✅ '.$products_added.' product(s) added to vendor catalog.';
+            }
+            if ($products_failed > 0) {
+                $notice .= '<br>⚠ '.$products_failed.' product(s) failed to add.';
+            }
+            $notice .= '</div>';
+            
+            // Optionally redirect to vendor list
+            // header('Location: vendors.php');
+            // exit;
         } else {
             $notice = '<div class="error">Error creating vendor: '.dol_escape_htmltag($v->error).'</div>';
         }
@@ -68,10 +105,75 @@ print '<div><a href="vendors.php">← Back to Vendors</a></div><br>';
   </table>
   
   <br>
+  <h3>📦 Products This Vendor Supplies (Optional)</h3>
+  <p style="color: #666; font-size: 12px;">Add products that this vendor typically supplies. This makes creating donations faster.</p>
+  
+  <div id="products-container">
+    <table class="noborder centpercent">
+      <tr class="liste_titre">
+        <th width="40%">Product Name</th>
+        <th width="15%">Unit</th>
+        <th width="20%">Typical Quantity</th>
+        <th width="10%">Action</th>
+      </tr>
+      <tr class="product-row">
+        <td><input class="flat" type="text" name="product_name[]" placeholder="e.g., Rice, Oil, Beans" style="width:95%;"></td>
+        <td>
+          <select class="flat" name="product_unit[]" style="width:95%;">
+            <option value="kg">kg</option>
+            <option value="liters">liters</option>
+            <option value="boxes">boxes</option>
+            <option value="bags">bags</option>
+            <option value="units">units</option>
+          </select>
+        </td>
+        <td><input class="flat" type="number" name="product_quantity[]" step="0.01" placeholder="100" style="width:95%;"></td>
+        <td><button type="button" class="button small" onclick="removeProductRow(this)">Remove</button></td>
+      </tr>
+    </table>
+  </div>
+  
+  <br>
+  <div style="margin-bottom: 20px;">
+    <button type="button" class="button" onclick="addProductRow()">+ Add Another Product</button>
+  </div>
+  
+  <br>
   <div class="center">
-    <input class="button" type="submit" value="Create Vendor">
+    <input class="button" type="submit" value="Create Vendor & Products">
     <a class="button" href="vendors.php">Cancel</a>
   </div>
 </form>
+
+<script>
+function addProductRow() {
+    var container = document.getElementById('products-container').querySelector('table');
+    var newRow = container.querySelector('.product-row').cloneNode(true);
+    
+    // Clear input values
+    var inputs = newRow.querySelectorAll('input, select');
+    inputs.forEach(function(input) {
+        if (input.type === 'text' || input.type === 'number') {
+            input.value = '';
+        } else if (input.tagName === 'SELECT') {
+            input.selectedIndex = 0;
+        }
+    });
+    
+    container.appendChild(newRow);
+}
+
+function removeProductRow(button) {
+    var container = document.getElementById('products-container').querySelector('table');
+    var rows = container.querySelectorAll('.product-row');
+    
+    // Keep at least one row
+    if (rows.length > 1) {
+        button.closest('.product-row').remove();
+    } else {
+        alert('You must keep at least one product row. Just leave it empty if you don\'t want to add products.');
+    }
+}
+</script>
 
 <?php llxFooter(); ?>

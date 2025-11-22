@@ -1,9 +1,6 @@
 <?php
-// Include Dolibarr's main.inc.php file to load the environment
-require_once dirname(__DIR__, 4) . '/main.inc.php'; // Absolute path from the current file
-
-// Include the Beneficiary class from the correct path
-require_once dirname(__DIR__, 3) . '/foodbankcrm/class/beneficiary.class.php'; // Correct path to the Beneficiary class
+require_once dirname(__DIR__, 4) . '/main.inc.php';
+require_once dirname(__DIR__, 3) . '/foodbankcrm/class/beneficiary.class.php'; 
 
 $langs->load("admin");
 llxHeader();

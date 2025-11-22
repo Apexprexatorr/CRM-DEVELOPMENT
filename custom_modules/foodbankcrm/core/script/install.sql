@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS llx_foodbank_donations (
   label VARCHAR(255),
   quantity INT DEFAULT 0,
   unit VARCHAR(50) DEFAULT 'unit',
+    status VARCHAR(50) DEFAULT 'Pending',  
   date_donation DATETIME DEFAULT CURRENT_TIMESTAMP,
   entity INT DEFAULT 1,
   note TEXT,
