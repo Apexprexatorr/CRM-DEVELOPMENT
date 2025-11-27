@@ -25,7 +25,6 @@ if (FoodbankPermissions::isAdmin($user)) {
     print '<div style="font-size: 64px; margin-bottom: 20px;">🔒</div>';
     print '<h2 style="color: #dc3545;">Access Denied</h2>';
     print '<p style="color: #666; font-size: 16px;">You do not have permission to access the Foodbank CRM system.</p>';
-    print '<p style="color: #666;">Current role: '.FoodbankPermissions::getUserRole($user, $db).'</p>';
     print '<p style="color: #666;">Please contact your administrator to request access.</p>';
     print '<br>';
     print '<a href="/" class="button">Return to Home</a>';

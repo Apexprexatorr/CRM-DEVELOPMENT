@@ -15,7 +15,7 @@ class modFoodbankcrm extends DolibarrModules
         $this->picto = 'generic';
         $this->name         = 'foodbankcrm';
         $this->description  = 'Foodbank CRM custom module';
-        $this->version      = '1.1';
+        $this->version      = '1.2';
         $this->editor_name  = 'YourName';
         $this->editor_url   = '';
 
@@ -29,6 +29,9 @@ class modFoodbankcrm extends DolibarrModules
         $this->requiredby   = array();
         $this->conflictwith = array();
 
+        $this->module_parts = array(
+    'hooks' => array('commonobject')
+);
         // ---- Permissions ----
         $this->rights = array();
         $r = 0;
@@ -72,6 +75,14 @@ class modFoodbankcrm extends DolibarrModules
         $this->rights[$r][5] = 'create_donation';
         $r++;
 
+        $this->rights[$r][0] = 100013;
+        $this->rights[$r][1] = 'Vendor View Own Donations';
+        $this->rights[$r][2] = 'r';
+        $this->rights[$r][3] = 0;
+        $this->rights[$r][4] = 'vendor';
+        $this->rights[$r][5] = 'view_own';
+        $r++;
+
         // Beneficiary permissions
         $this->rights[$r][0] = 100021;
         $this->rights[$r][1] = 'Beneficiary Dashboard Access';
@@ -79,6 +90,14 @@ class modFoodbankcrm extends DolibarrModules
         $this->rights[$r][3] = 0;
         $this->rights[$r][4] = 'beneficiary';
         $this->rights[$r][5] = 'dashboard';
+        $r++;
+
+        $this->rights[$r][0] = 100022;
+        $this->rights[$r][1] = 'Beneficiary View Own Orders';
+        $this->rights[$r][2] = 'r';
+        $this->rights[$r][3] = 0;
+        $this->rights[$r][4] = 'beneficiary';
+        $this->rights[$r][5] = 'view_own';
         $r++;
 
         // ---- Menus ----
@@ -96,42 +115,225 @@ class modFoodbankcrm extends DolibarrModules
             'langs'     => 'foodbankcrm@foodbankcrm',
             'position'  => 1000,
             'enabled'   => '1',
-            'perms'     => '$user->rights->foodbankcrm->read',
+            'perms'     => '$user->rights->foodbankcrm->read || $user->rights->foodbankcrm->vendor->dashboard || $user->rights->foodbankcrm->beneficiary->dashboard',
             'target'    => '',
             'user'      => 2
         );
         $r++;
 
-        // Left menu entries
-        $lefts = array(
-        array('Beneficiaries', '/custom/foodbankcrm/core/pages/beneficiaries.php'),
-        array('Vendors', '/custom/foodbankcrm/core/pages/vendors.php'),
-        array('Donations', '/custom/foodbankcrm/core/pages/donations.php'),
-        array('Packages', '/custom/foodbankcrm/core/pages/packages.php'),
-        array('Distributions', '/custom/foodbankcrm/core/pages/distributions.php'),
-        array('Warehouses', '/custom/foodbankcrm/core/pages/warehouses.php'),
-        array('Subscription Tiers', '/custom/foodbankcrm/core/pages/subscription_tiers.php'), 
-        array('User Management', '/custom/foodbankcrm/core/pages/user_management.php'),
-        array('Product Catalog', '/custom/foodbankcrm/core/pages/product_catalog.php'),
-         );
+        // ===== ADMIN-ONLY LEFT MENU ITEMS =====
+        
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Beneficiaries',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_beneficiaries',
+            'url'       => '/custom/foodbankcrm/core/pages/beneficiaries.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1001,
+            'enabled'   => '1',
+            'perms'     => '$user->admin', // ADMIN ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
 
-        foreach ($lefts as $i => $m) {
-            $this->menu[$r] = array(
-                'fk_menu'   => 'fk_mainmenu=foodbankcrm',
-                'type'      => 'left',
-                'titre'     => $m[0],
-                'mainmenu'  => 'foodbankcrm',
-                'leftmenu'  => 'foodbankcrm_'.$i,
-                'url'       => $m[1],
-                'langs'     => 'foodbankcrm@foodbankcrm',
-                'position'  => 1000 + $i + 1,
-                'enabled'   => '1',
-                'perms'     => '$user->rights->foodbankcrm->read',
-                'target'    => '',
-                'user'      => 2
-            );
-            $r++;
-        }
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Vendors',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_vendors',
+            'url'       => '/custom/foodbankcrm/core/pages/vendors.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1002,
+            'enabled'   => '1',
+            'perms'     => '$user->admin', // ADMIN ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Donations',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_donations',
+            'url'       => '/custom/foodbankcrm/core/pages/donations.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1003,
+            'enabled'   => '1',
+            'perms'     => '$user->admin', // ADMIN ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Packages',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_packages',
+            'url'       => '/custom/foodbankcrm/core/pages/packages.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1004,
+            'enabled'   => '1',
+            'perms'     => '$user->admin', // ADMIN ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Distributions',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_distributions',
+            'url'       => '/custom/foodbankcrm/core/pages/distributions.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1005,
+            'enabled'   => '1',
+            'perms'     => '$user->admin', // ADMIN ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Warehouses',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_warehouses',
+            'url'       => '/custom/foodbankcrm/core/pages/warehouses.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1006,
+            'enabled'   => '1',
+            'perms'     => '$user->admin', // ADMIN ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Subscription Tiers',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_tiers',
+            'url'       => '/custom/foodbankcrm/core/pages/subscription_tiers.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1007,
+            'enabled'   => '1',
+            'perms'     => '$user->admin', // ADMIN ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'User Management',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_users',
+            'url'       => '/custom/foodbankcrm/core/pages/user_management.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1008,
+            'enabled'   => '1',
+            'perms'     => '$user->admin', // ADMIN ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Product Catalog',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_products',
+            'url'       => '/custom/foodbankcrm/core/pages/product_catalog.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1009,
+            'enabled'   => '1',
+            'perms'     => '$user->admin', // ADMIN ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        // ===== VENDOR MENU ITEMS =====
+        
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'My Donations',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_my_donations',
+            'url'       => '/custom/foodbankcrm/core/pages/my_donations.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 2001,
+            'enabled'   => '1',
+            'perms'     => '$user->rights->foodbankcrm->vendor->view_own', // VENDOR ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Submit Donation',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_create_donation',
+            'url'       => '/custom/foodbankcrm/core/pages/create_donation.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 2002,
+            'enabled'   => '1',
+            'perms'     => '$user->rights->foodbankcrm->vendor->create_donation', // VENDOR ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        // ===== BENEFICIARY MENU ITEMS =====
+        
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'My Orders',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_my_orders',
+            'url'       => '/custom/foodbankcrm/core/pages/my_orders.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 3001,
+            'enabled'   => '1',
+            'perms'     => '$user->rights->foodbankcrm->beneficiary->view_own', // BENEFICIARY ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Available Packages',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_available_packages',
+            'url'       => '/custom/foodbankcrm/core/pages/available_packages.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 3002,
+            'enabled'   => '1',
+            'perms'     => '$user->rights->foodbankcrm->beneficiary->dashboard', // BENEFICIARY ONLY
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
     }
 
     public function init($options = '')
