@@ -2,9 +2,10 @@
 require_once dirname(__DIR__, 4) . '/main.inc.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/foodbankcrm/class/permissions.class.php';
 
+global $user, $db;
+
 $langs->load("admin");
 
-// Check if user is a subscriber
 $user_is_subscriber = FoodbankPermissions::isBeneficiary($user, $db);
 $subscriber_id = null;
 
@@ -22,6 +23,7 @@ if (!$subscriber_id) {
 }
 
 $order_id = GETPOST('order_id', 'int');
+$payment_pending = GETPOST('payment', 'alpha') == 'pending';
 
 if (!$order_id) {
     header('Location: product_catalog.php');
@@ -29,6 +31,14 @@ if (!$order_id) {
 }
 
 llxHeader('', 'Order Confirmation');
+
+echo '<style>
+#id-left { display: none !important; }
+#id-right { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
+.fiche { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+body { background: #f8f9fa !important; }
+.login_block { width: 100% !important; }
+</style>';
 
 // Get order details
 $sql = "SELECT d.*, b.firstname, b.lastname, b.email, b.phone
@@ -41,108 +51,170 @@ $res = $db->query($sql);
 $order = $db->fetch_object($res);
 
 if (!$order) {
+    print '<div style="padding: 30px; text-align: center;">';
     print '<div class="error">Order not found.</div>';
-    print '<div><a href="dashboard_beneficiary.php">← Go to Dashboard</a></div>';
+    print '<div><a href="dashboard_beneficiary.php" class="butAction">← Go to Dashboard</a></div>';
+    print '</div>';
     llxFooter();
     exit;
 }
 
 // Get order items
-$sql = "SELECT dl.*, d.product_name, d.unit,
-        (dl.quantity_distributed * dl.unit_price) as line_total
-        FROM ".MAIN_DB_PREFIX."foodbank_distribution_lines dl
-        INNER JOIN ".MAIN_DB_PREFIX."foodbank_donations d ON dl.fk_donation = d.rowid
-        WHERE dl.fk_distribution = ".(int)$order_id;
+$sql_items = "SELECT * FROM ".MAIN_DB_PREFIX."foodbank_distribution_lines 
+              WHERE fk_distribution = ".(int)$order_id;
+$res_items = $db->query($sql_items);
 
-$res_items = $db->query($sql);
+// Determine status color
+$status_color = '#ffc107'; // Yellow for Pending
+if ($order->status == 'Delivered') $status_color = '#28a745';
+if ($order->status == 'Pending') $status_color = '#17a2b8';
 
-// Success animation
-print '<div style="text-align: center; padding: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 8px; margin-bottom: 30px;">';
-print '<div style="font-size: 80px; margin-bottom: 20px;">✓</div>';
-print '<h1 style="margin: 0 0 10px 0; font-size: 32px;">Order Placed Successfully!</h1>';
-print '<p style="font-size: 18px; opacity: 0.9;">Thank you for your order, '.dol_escape_htmltag($order->firstname).'!</p>';
+print '<div style="width: 100%; padding: 30px; box-sizing: border-box; max-width: 1200px; margin: 0 auto;">';
+
+// Success Header
+print '<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 60px 40px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 8px 16px rgba(102,126,234,0.3);">';
+print '<div style="font-size: 80px; margin-bottom: 20px; animation: bounce 1s ease;">✓</div>';
+print '<h1 style="margin: 0 0 15px 0; font-size: 36px;">Order Placed Successfully!</h1>';
+print '<p style="font-size: 18px; margin: 0; opacity: 0.9;">Thank you for your order, '.dol_escape_htmltag($order->firstname).'!</p>';
+print '<p style="font-size: 14px; margin: 10px 0 0 0; opacity: 0.8;">Order #'.dol_escape_htmltag($order->ref).'</p>';
 print '</div>';
 
-// Order details
-print '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">';
-
-// Order info
-print '<div style="background: #f5f5f5; padding: 20px; border-radius: 8px;">';
-print '<h3 style="margin-top: 0;">📋 Order Information</h3>';
-print '<table style="width: 100%; font-size: 14px;">';
-print '<tr><td><strong>Order Ref:</strong></td><td>'.dol_escape_htmltag($order->ref).'</td></tr>';
-print '<tr><td><strong>Order Date:</strong></td><td>'.dol_print_date($db->jdate($order->date_creation), 'dayhour').'</td></tr>';
-print '<tr><td><strong>Status:</strong></td><td><span style="background: #fff3e0; color: #f57c00; padding: 3px 8px; border-radius: 3px; font-weight: bold;">'.dol_escape_htmltag($order->status).'</span></td></tr>';
-print '<tr><td><strong>Payment:</strong></td><td>'.dol_escape_htmltag($order->payment_method).'</td></tr>';
-print '<tr><td><strong>Total Amount:</strong></td><td><strong style="font-size: 18px; color: #1976d2;">₦'.number_format($order->total_amount, 2).'</strong></td></tr>';
-print '</table>';
-print '</div>';
-
-// Delivery info
-print '<div style="background: #f5f5f5; padding: 20px; border-radius: 8px;">';
-print '<h3 style="margin-top: 0;">🚚 Delivery Information</h3>';
-print '<table style="width: 100%; font-size: 14px;">';
-print '<tr><td><strong>Address:</strong></td><td>'.nl2br(dol_escape_htmltag($order->delivery_address)).'</td></tr>';
-print '<tr><td><strong>Phone:</strong></td><td>'.dol_escape_htmltag($order->phone).'</td></tr>';
-if ($order->notes) {
-    print '<tr><td><strong>Notes:</strong></td><td>'.nl2br(dol_escape_htmltag($order->notes)).'</td></tr>';
-}
-print '<tr><td><strong>Est. Delivery:</strong></td><td>2-4 business days</td></tr>';
-print '</table>';
-print '</div>';
-
-print '</div>';
-
-// Order items
-print '<h2>📦 Order Items</h2>';
-print '<table class="noborder centpercent">';
-print '<tr class="liste_titre">';
-print '<th>Product</th>';
-print '<th class="center">Quantity</th>';
-print '<th class="center">Unit Price</th>';
-print '<th class="center">Total</th>';
-print '</tr>';
-
-$order_total = 0;
-while ($item = $db->fetch_object($res_items)) {
-    $order_total += $item->line_total;
-    
-    print '<tr class="oddeven">';
-    print '<td><strong>'.dol_escape_htmltag($item->product_name).'</strong></td>';
-    print '<td class="center">'.$item->quantity_distributed.' '.$item->unit.'</td>';
-    print '<td class="center">₦'.number_format($item->unit_price, 2).'</td>';
-    print '<td class="center"><strong>₦'.number_format($item->line_total, 2).'</strong></td>';
-    print '</tr>';
+// Payment Pending Alert
+if ($payment_pending) {
+    print '<div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 25px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">';
+    print '<h3 style="margin: 0 0 15px 0; color: #856404; display: flex; align-items: center;"><span style="font-size: 24px; margin-right: 10px;">⚠️</span> Payment Pending</h3>';
+    print '<p style="margin: 0 0 15px 0; color: #856404;">Please complete your payment to process your order.</p>';
+    print '<a href="process_order_payment.php?order_id='.$order_id.'" class="butAction" style="display: inline-block;">💳 Complete Payment with Paystack</a>';
+    print '</div>';
 }
 
-print '<tr class="liste_total">';
-print '<td colspan="3" class="right"><strong>Total:</strong></td>';
-print '<td class="center"><strong style="font-size: 18px; color: #1976d2;">₦'.number_format($order_total, 2).'</strong></td>';
-print '</tr>';
+// Main Content Grid
+print '<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 30px;">';
 
-print '</table>';
+// LEFT COLUMN - Order Items
+print '<div>';
 
-// Next steps
-print '<div style="margin-top: 30px; background: #e8f5e9; padding: 20px; border-radius: 5px; border-left: 4px solid #4caf50;">';
-print '<h3 style="margin-top: 0;">✓ What Happens Next?</h3>';
-print '<ol style="margin-bottom: 0;">';
-print '<li>We\'re preparing your order right now</li>';
-print '<li>You\'ll receive updates as your order moves through each stage</li>';
-print '<li>Track your order status in your dashboard</li>';
+// Order Items Card
+print '<div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">';
+print '<h2 style="margin: 0 0 20px 0; display: flex; align-items: center; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px;">';
+print '<span style="font-size: 28px; margin-right: 10px;">📦</span> Order Items';
+print '</h2>';
 
-if ($order->payment_method == 'pay_now') {
-    print '<li><strong>Payment:</strong> Complete payment via the link sent to your email</li>';
+if ($res_items && $db->num_rows($res_items) > 0) {
+    while ($item = $db->fetch_object($res_items)) {
+        print '<div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 0; border-bottom: 1px solid #f0f0f0;">';
+        print '<div style="flex: 1;">';
+        print '<div style="font-weight: bold; font-size: 16px; color: #333;">'.dol_escape_htmltag($item->product_name).'</div>';
+        print '<div style="color: #666; font-size: 14px; margin-top: 5px;">'.number_format($item->quantity, 2).' '.dol_escape_htmltag($item->unit).'</div>';
+        print '</div>';
+        print '<div style="font-size: 18px; font-weight: bold; color: #28a745;">✓</div>';
+        print '</div>';
+    }
 } else {
-    print '<li><strong>Payment:</strong> Prepare cash payment for delivery</li>';
+    print '<div style="text-align: center; padding: 40px; color: #999;">';
+    print '<div style="font-size: 48px; margin-bottom: 15px;">📦</div>';
+    print '<p>Order items are being processed...</p>';
+    print '</div>';
 }
 
-print '</ol>';
 print '</div>';
 
-// Action buttons
-print '<div style="display: flex; gap: 15px; margin-top: 30px; justify-content: center;">';
-print '<a class="button" href="dashboard_beneficiary.php">Go to Dashboard</a>';
-print '<a class="button" href="product_catalog.php">Continue Shopping</a>';
+// What Happens Next
+print '<div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(67,233,123,0.3);">';
+print '<h3 style="margin: 0 0 20px 0; font-size: 20px; display: flex; align-items: center;">';
+print '<span style="font-size: 28px; margin-right: 10px;">📋</span> What Happens Next?';
+print '</h3>';
+print '<div style="display: flex; flex-direction: column; gap: 15px;">';
+
+$steps = [
+    ['icon' => '⏳', 'title' => 'Order Review', 'desc' => 'We\'re reviewing your order now'],
+    ['icon' => '✅', 'title' => 'Preparation', 'desc' => 'Your items will be prepared'],
+    ['icon' => '📦', 'title' => 'Packing', 'desc' => 'Carefully packed for delivery'],
+    ['icon' => '🚚', 'title' => 'Delivery', 'desc' => 'Delivered in 2-4 business days']
+];
+
+foreach ($steps as $i => $step) {
+    print '<div style="display: flex; align-items: start; gap: 15px;">';
+    print '<div style="font-size: 32px; min-width: 40px;">'.$step['icon'].'</div>';
+    print '<div style="flex: 1;">';
+    print '<div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">'.$step['title'].'</div>';
+    print '<div style="font-size: 14px; opacity: 0.9;">'.$step['desc'].'</div>';
+    print '</div>';
+    print '</div>';
+}
+
+print '</div>';
+print '</div>';
+
+print '</div>'; // End left column
+
+// RIGHT COLUMN - Order Details
+print '<div>';
+
+// Order Information Card
+print '<div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">';
+print '<h3 style="margin: 0 0 20px 0; display: flex; align-items: center; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px;">';
+print '<span style="font-size: 24px; margin-right: 10px;">📋</span> Order Details';
+print '</h3>';
+
+$details = [
+    ['label' => 'Order Ref', 'value' => $order->ref, 'bold' => true],
+    ['label' => 'Date', 'value' => dol_print_date($db->jdate($order->date_distribution), 'day')],
+    ['label' => 'Status', 'value' => '<span style="background: '.$status_color.'; color: white; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: bold;">'.dol_escape_htmltag($order->status).'</span>', 'html' => true],
+    ['label' => 'Payment', 'value' => ucfirst(str_replace('_', ' ', $order->payment_method))],
+    ['label' => 'Amount', 'value' => '₦'.number_format($order->total_amount, 2), 'bold' => true, 'color' => '#28a745']
+];
+
+foreach ($details as $detail) {
+    print '<div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f8f9fa;">';
+    print '<span style="color: #666; font-size: 14px;">'.$detail['label'].':</span>';
+    if (isset($detail['html']) && $detail['html']) {
+        print '<span>'.$detail['value'].'</span>';
+    } else {
+        $style = 'font-size: 14px;';
+        if (isset($detail['bold']) && $detail['bold']) $style .= ' font-weight: bold;';
+        if (isset($detail['color'])) $style .= ' color: '.$detail['color'].';';
+        print '<span style="'.$style.'">'.dol_escape_htmltag($detail['value']).'</span>';
+    }
+    print '</div>';
+}
+
+print '</div>';
+
+// Delivery Information Card
+print '<div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">';
+print '<h3 style="margin: 0 0 20px 0; display: flex; align-items: center; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px;">';
+print '<span style="font-size: 24px; margin-right: 10px;">🚚</span> Delivery Info';
+print '</h3>';
+
+print '<div style="margin-bottom: 15px;">';
+print '<div style="color: #666; font-size: 13px; margin-bottom: 5px;">DELIVERY ADDRESS</div>';
+print '<div style="font-size: 14px; line-height: 1.6;">'.nl2br(dol_escape_htmltag($order->note)).'</div>';
+print '</div>';
+
+print '<div style="margin-bottom: 15px;">';
+print '<div style="color: #666; font-size: 13px; margin-bottom: 5px;">PHONE NUMBER</div>';
+print '<div style="font-size: 14px; font-weight: bold;">'.dol_escape_htmltag($order->phone).'</div>';
+print '</div>';
+
+print '<div>';
+print '<div style="color: #666; font-size: 13px; margin-bottom: 5px;">ESTIMATED DELIVERY</div>';
+print '<div style="font-size: 14px; font-weight: bold; color: #28a745;">2-4 business days</div>';
+print '</div>';
+
+print '</div>';
+
+print '</div>'; // End right column
+
+print '</div>'; // End grid
+
+// Action Buttons
+print '<div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">';
+print '<a href="my_orders.php" class="butAction" style="min-width: 200px; text-align: center;">📋 View All Orders</a>';
+print '<a href="product_catalog.php" class="butAction" style="min-width: 200px; text-align: center;">🛒 Continue Shopping</a>';
+print '<a href="dashboard_beneficiary.php" class="butAction" style="min-width: 200px; text-align: center;">🏠 Go to Dashboard</a>';
+print '</div>';
+
 print '</div>';
 
 llxFooter();

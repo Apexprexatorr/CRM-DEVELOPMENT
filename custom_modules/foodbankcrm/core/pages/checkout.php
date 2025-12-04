@@ -1,7 +1,4 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 require_once dirname(__DIR__, 4) . '/main.inc.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/foodbankcrm/class/permissions.class.php';
 
@@ -30,18 +27,6 @@ if (!$subscriber_id) {
     accessforbidden('You must be a subscriber to checkout.');
 }
 
-llxHeader('', 'Checkout');
-
-echo '<style>
-#id-left { display: none !important; }
-#id-right { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
-.fiche { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
-body { background: #f8f9fa !important; }
-.login_block { width: 100% !important; }
-</style>';
-
-print '<div style="width: 100%; padding: 30px; box-sizing: border-box; max-width: 1400px; margin: 0 auto;">';
-
 $sql = "SELECT c.*, p.name as package_name, p.ref as package_ref,
         (c.quantity * c.unit_price) as line_total
         FROM ".MAIN_DB_PREFIX."foodbank_cart c
@@ -51,12 +36,13 @@ $sql = "SELECT c.*, p.name as package_name, p.ref as package_ref,
 $res = $db->query($sql);
 
 if (!$res || $db->num_rows($res) == 0) {
-    print '<div style="text-align: center; padding: 60px; background: white; border-radius: 8px;">';
+    llxHeader('', 'Checkout');
+    echo '<style>#id-left{display:none!important;}#id-right{margin-left:0!important;width:100%!important;padding:0!important;}.fiche{max-width:100%!important;margin:0!important;padding:0!important;}body{background:#f8f9fa!important;}.login_block{width:100%!important;}</style>';
+    print '<div style="text-align: center; padding: 60px; background: white; border-radius: 8px; margin: 30px;">';
     print '<div style="font-size: 64px; margin-bottom: 20px;">🛒</div>';
     print '<h2>Your cart is empty</h2>';
     print '<p style="color: #666;">Add some packages to your cart to continue.</p>';
     print '<br><a href="product_catalog.php" class="butAction">← Browse Packages</a>';
-    print '</div>';
     print '</div>';
     llxFooter();
     exit;
@@ -72,23 +58,24 @@ while ($obj = $db->fetch_object($res)) {
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (!isset($_POST['token']) || $_POST['token'] != $_SESSION['newtoken']) {
-        print '<div class="error">Security check failed.</div>';
+        $error = 'Security check failed.';
     } else {
         $delivery_address = GETPOST('delivery_address', 'restricthtml');
         $delivery_notes = GETPOST('delivery_notes', 'restricthtml');
         $payment_method = GETPOST('payment_method', 'alpha');
         
         if (empty($delivery_address)) {
-            print '<div class="error">Delivery address is required.</div>';
+            $error = 'Delivery address is required.';
         } elseif (empty($payment_method)) {
-            print '<div class="error">Please select a payment method.</div>';
+            $error = 'Please select a payment method.';
         } else {
             $db->begin();
             
             try {
                 $ref = 'DIS'.date('Y').'-'.str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
-                $payment_status = ($payment_method == 'pay_now') ? 'Pending' : 'Pay_On_Delivery';
+                $payment_status = ($payment_method == 'pay_now') ? 'Pending' : 'Success';
                 
+                // CHANGED: 'Prepared' to 'Pending'
                 $sql_dist = "INSERT INTO ".MAIN_DB_PREFIX."foodbank_distributions 
                             (ref, fk_beneficiary, date_distribution, note, status, 
                              payment_status, payment_method, total_amount, datec)
@@ -97,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 ".(int)$subscriber_id.",
                                 NOW(),
                                 '".$db->escape($delivery_address.' - '.$delivery_notes)."',
-                                'Prepared',
+                                'Pending',
                                 '".$db->escape($payment_status)."',
                                 '".$db->escape($payment_method)."',
                                 ".(float)$grand_total.",
@@ -163,10 +150,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 
             } catch (Exception $e) {
                 $db->rollback();
-                print '<div class="error">Error placing order: '.dol_escape_htmltag($e->getMessage()).'</div>';
+                $error = 'Error placing order: '.$e->getMessage();
             }
         }
     }
+}
+
+llxHeader('', 'Checkout');
+
+echo '<style>
+#id-left { display: none !important; }
+#id-right { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
+.fiche { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+body { background: #f8f9fa !important; }
+.login_block { width: 100% !important; }
+</style>';
+
+print '<div style="width: 100%; padding: 30px; box-sizing: border-box; max-width: 1400px; margin: 0 auto;">';
+
+if (isset($error)) {
+    print '<div class="error" style="background: #fee; border: 1px solid #f99; padding: 15px; border-radius: 4px; margin-bottom: 20px;">'.$error.'</div>';
 }
 
 print '<h1 style="margin: 0 0 30px 0;">🛒 Checkout</h1>';
