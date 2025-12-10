@@ -1,241 +1,138 @@
 <?php
 require_once dirname(__DIR__, 4) . '/main.inc.php';
 require_once dirname(__DIR__, 3) . '/foodbankcrm/class/vendor.class.php';
-require_once dirname(__DIR__, 3) . '/foodbankcrm/class/vendorproduct.class.php';
 
 $langs->load("admin");
-llxHeader();
+llxHeader('', 'Edit Vendor');
 
 if (!isset($_GET['id']) || empty($_GET['id'])) {
-    print '<div class="error">Vendor ID is missing in the URL.</div>';
-    print '<div><a href="vendors.php">← Back to Vendors</a></div>';
-    llxFooter(); exit;
+    header("Location: vendors.php"); exit;
 }
 
-$vendor_id = (int) $_GET['id'];
-$v = new Vendor($db);
-$v->fetch($vendor_id);
+// CSS Style
+print '<style>
+    #id-top { display: none !important; }
+    .side-nav { top: 0 !important; height: 100vh !important; }
+    #id-right { padding-top: 30px !important; }
+    .fb-container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+    .fb-card { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 40px; border: 1px solid #eee; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: #444; }
+    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+</style>';
+
+// --- FIX: Use VendorFB instead of Vendor ---
+$v = new VendorFB($db);
+$v->fetch((int) $_GET['id']);
 
 $notice = '';
+$hide_form = false;
 
-// Handle product deletion
-if (isset($_GET['delete_product'])) {
-    $product_id = (int) $_GET['delete_product'];
-    $vp = new VendorProduct($db);
-    $vp->fetch($product_id);
-    
-    $result = $vp->delete($user);
-    if ($result > 0) {
-        $notice = '<div class="ok">Product deleted successfully!</div>';
-    } elseif ($result == -2) {
-        $notice = '<div class="error">'.$vp->error.'</div>';
-    } else {
-        $notice = '<div class="error">Error deleting product: '.$vp->error.'</div>';
-    }
-}
-
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (!isset($_POST['token']) || $_POST['token'] != $_SESSION['newtoken']) {
-        $notice = '<div class="error">Security check failed: invalid CSRF token.</div>';
+        $notice = '<div class="error">Security check failed.</div>';
     } else {
-        // Update vendor info
-        $v->ref = $_POST['ref'];
         $v->name = $_POST['name'];
-        $v->contact_person = $_POST['contact_person'];
-        $v->phone = $_POST['phone'];
+        $v->category = $_POST['category'];
         $v->email = $_POST['email'];
+        $v->phone = $_POST['phone'];
+        $v->contact_person = $_POST['contact_person'];
+        $v->contact_email = $_POST['contact_email'];
+        $v->contact_phone = $_POST['contact_phone'];
         $v->address = $_POST['address'];
-        $v->note = $_POST['note'];
-
-        $res = $v->update($user);
+        $v->description = $_POST['description'];
         
-        if ($res > 0) {
-            // Handle new products
-            $products_added = 0;
-            $products_failed = 0;
+        // Save Status Manually
+        $status = $_POST['status'];
+        
+        if ($v->update($user) > 0) {
+            // Update Status Column manually
+            $db->query("UPDATE ".MAIN_DB_PREFIX."foodbank_vendors SET status='".$db->escape($status)."' WHERE rowid=".$v->id);
             
-            if (!empty($_POST['product_name']) && is_array($_POST['product_name'])) {
-                foreach ($_POST['product_name'] as $index => $product_name) {
-                    if (empty(trim($product_name))) continue;
-                    
-                    $vp = new VendorProduct($db);
-                    $vp->fk_vendor = $vendor_id;
-                    $vp->product_name = trim($product_name);
-                    $vp->unit = !empty($_POST['product_unit'][$index]) ? $_POST['product_unit'][$index] : 'kg';
-                    $vp->typical_quantity = !empty($_POST['product_quantity'][$index]) ? $_POST['product_quantity'][$index] : null;
-                    $vp->status = 'Active';
-                    
-                    if ($vp->create($user) > 0) {
-                        $products_added++;
-                    } else {
-                        $products_failed++;
-                    }
-                }
-            }
-            
-            $notice = '<div class="ok">Vendor updated successfully!';
-            if ($products_added > 0) {
-                $notice .= '<br>✅ '.$products_added.' new product(s) added.';
-            }
-            if ($products_failed > 0) {
-                $notice .= '<br>⚠ '.$products_failed.' product(s) failed to add.';
-            }
-            $notice .= '</div>';
-            
-            // Refresh vendor data
-            $v->fetch($vendor_id);
+            $notice = '<div class="ok" style="padding: 20px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; color: #155724; margin-bottom: 20px; text-align: center;">
+                        <div style="font-size: 40px; margin-bottom: 10px;">✅</div>
+                        <strong>Vendor Updated Successfully!</strong><br>
+                        Ref: '.$v->ref.'<br><br>
+                        <a href="vendors.php" class="button" style="background:#28a745; color:white; border:none; padding:10px 20px;">Return to List</a>
+                        <a href="edit_vendor.php?id='.$v->id.'" class="button" style="background:#eee; color:#333; margin-left:10px;">Edit Again</a>
+                       </div>';
+            $hide_form = true;
         } else {
             $notice = '<div class="error">Update failed: '.$v->error.'</div>';
         }
     }
 }
 
-// Get existing products
-$existing_products = VendorProduct::getAllByVendor($db, $vendor_id);
+print '<div class="fb-container">';
+
+if (!$hide_form) {
+    print '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-top: 20px;">';
+    print '<div><h1 style="margin: 0;">✏️ Edit Vendor</h1><p style="color:#888; margin: 5px 0 0 0;">Update details for <strong>'.dol_escape_htmltag($v->name).'</strong></p></div>';
+    print '<a href="vendors.php" class="button" style="background:#eee; color:#333;">Cancel</a>';
+    print '</div>';
+}
 
 print $notice;
-print '<div><a href="vendors.php">← Back to Vendors</a></div><br>';
-?>
 
-<h2>Edit Vendor: <?php echo dol_escape_htmltag($v->name); ?></h2>
+if (!$hide_form) {
+    print '<div class="fb-card">';
+    print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.(int)$v->id.'">';
+    print '<input type="hidden" name="token" value="'.newToken().'">';
 
-<form method="POST" action="<?php echo $_SERVER['PHP_SELF'].'?id='.$vendor_id; ?>">
-  <input type="hidden" name="token" value="<?php echo newToken(); ?>">
-  
-  <table class="border centpercent">
-    <tr>
-      <td width="25%">Ref</td>
-      <td><input class="flat" type="text" name="ref" value="<?php echo dol_escape_htmltag($v->ref); ?>" required></td>
-    </tr>
-    <tr>
-      <td><span class="fieldrequired">Vendor Name</span></td>
-      <td><input class="flat" type="text" name="name" value="<?php echo dol_escape_htmltag($v->name); ?>" required></td>
-    </tr>
-    <tr>
-      <td>Contact Person</td>
-      <td><input class="flat" type="text" name="contact_person" value="<?php echo dol_escape_htmltag($v->contact_person); ?>"></td>
-    </tr>
-    <tr>
-      <td>Phone</td>
-      <td><input class="flat" type="text" name="phone" value="<?php echo dol_escape_htmltag($v->phone); ?>"></td>
-    </tr>
-    <tr>
-      <td>Email</td>
-      <td><input class="flat" type="email" name="email" value="<?php echo dol_escape_htmltag($v->email); ?>"></td>
-    </tr>
-    <tr>
-      <td>Address</td>
-      <td><textarea class="flat" name="address" rows="3"><?php echo dol_escape_htmltag($v->address); ?></textarea></td>
-    </tr>
-    <tr>
-      <td>Note</td>
-      <td><textarea class="flat" name="note" rows="3"><?php echo dol_escape_htmltag($v->note); ?></textarea></td>
-    </tr>
-  </table>
-  
-  <br>
-  <h3>📦 Products This Vendor Supplies</h3>
-  
-  <?php if (count($existing_products) > 0): ?>
-  <h4>Current Products:</h4>
-  <table class="noborder centpercent">
-    <tr class="liste_titre">
-      <th>Product Name</th>
-      <th>Unit</th>
-      <th>Typical Quantity</th>
-      <th>Status</th>
-      <th class="center">Action</th>
-    </tr>
-    <?php foreach ($existing_products as $product): ?>
-    <tr class="oddeven">
-      <td><strong><?php echo dol_escape_htmltag($product->product_name); ?></strong></td>
-      <td><?php echo dol_escape_htmltag($product->unit); ?></td>
-      <td><?php echo $product->typical_quantity ? dol_escape_htmltag($product->typical_quantity) : '—'; ?></td>
-      <td>
-        <span style="color: <?php echo $product->status == 'Active' ? 'green' : 'gray'; ?>;">
-          <?php echo dol_escape_htmltag($product->status); ?>
-        </span>
-      </td>
-      <td class="center">
-        <a href="<?php echo $_SERVER['PHP_SELF'].'?id='.$vendor_id.'&delete_product='.$product->id.'&token='.newToken(); ?>" 
-           onclick="return confirm('Delete this product?');"
-           style="color: #dc3545;">Delete</a>
-      </td>
-    </tr>
-    <?php endforeach; ?>
-  </table>
-  <br>
-  <?php else: ?>
-  <p style="color: #999;">This vendor has no products in the catalog yet.</p>
-  <?php endif; ?>
-  
-  <h4>Add New Products:</h4>
-  <div id="products-container">
-    <table class="noborder centpercent">
-      <tr class="liste_titre">
-        <th width="40%">Product Name</th>
-        <th width="15%">Unit</th>
-        <th width="20%">Typical Quantity</th>
-        <th width="10%">Action</th>
-      </tr>
-      <tr class="product-row">
-        <td><input class="flat" type="text" name="product_name[]" placeholder="e.g., Rice, Oil, Beans" style="width:95%;"></td>
-        <td>
-          <select class="flat" name="product_unit[]" style="width:95%;">
-            <option value="kg">kg</option>
-            <option value="liters">liters</option>
-            <option value="boxes">boxes</option>
-            <option value="bags">bags</option>
-            <option value="units">units</option>
-          </select>
-        </td>
-        <td><input class="flat" type="number" name="product_quantity[]" step="0.01" placeholder="100" style="width:95%;"></td>
-        <td><button type="button" class="button small" onclick="removeProductRow(this)">Remove</button></td>
-      </tr>
-    </table>
-  </div>
-  
-  <br>
-  <div style="margin-bottom: 20px;">
-    <button type="button" class="button" onclick="addProductRow()">+ Add Another Product</button>
-  </div>
-  
-  <br>
-  <div class="center">
-    <input class="button" type="submit" value="Update Vendor">
-    <a class="button" href="vendors.php">Cancel</a>
-  </div>
-</form>
+    print '<h3 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 25px;">Business Details</h3>';
 
-<script>
-function addProductRow() {
-    var container = document.getElementById('products-container').querySelector('table');
-    var newRow = container.querySelector('.product-row').cloneNode(true);
-    
-    // Clear input values
-    var inputs = newRow.querySelectorAll('input, select');
-    inputs.forEach(function(input) {
-        if (input.type === 'text' || input.type === 'number') {
-            input.value = '';
-        } else if (input.tagName === 'SELECT') {
-            input.selectedIndex = 0;
-        }
-    });
-    
-    container.appendChild(newRow);
-}
-
-function removeProductRow(button) {
-    var container = document.getElementById('products-container').querySelector('table');
-    var rows = container.querySelectorAll('.product-row');
-    
-    if (rows.length > 1) {
-        button.closest('.product-row').remove();
-    } else {
-        alert('You must keep at least one product row. Just leave it empty if you don\'t want to add products.');
+    print '<div class="form-grid">';
+    print '<div class="form-group"><label>Business Name</label><input type="text" name="name" value="'.dol_escape_htmltag($v->name).'" required></div>';
+    print '<div class="form-group"><label>Category</label>';
+    print '<select name="category">';
+    print '<option value="">-- Select Category --</option>';
+    $cats = ['Grains','Vegetables','Proteins','Dairy','Beverages','Packaged Foods','Other'];
+    foreach($cats as $c) { 
+        $sel = ($v->category == $c) ? 'selected' : '';
+        print '<option value="'.$c.'" '.$sel.'>'.$c.'</option>'; 
     }
-}
-</script>
+    print '</select></div>';
+    print '</div>';
 
-<?php llxFooter(); ?>
+    print '<div class="form-grid">';
+    print '<div class="form-group"><label>Business Email</label><input type="email" name="email" value="'.dol_escape_htmltag($v->email).'"></div>';
+    print '<div class="form-group"><label>Business Phone</label><input type="text" name="phone" value="'.dol_escape_htmltag($v->phone).'"></div>';
+    print '</div>';
+
+    print '<div class="form-group"><label>Address</label><textarea name="address" rows="2">'.dol_escape_htmltag($v->address).'</textarea></div>';
+
+    print '<h3 style="margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 25px;">Contact Manager</h3>';
+
+    print '<div class="form-grid">';
+    print '<div class="form-group"><label>Contact Person</label><input type="text" name="contact_person" value="'.dol_escape_htmltag($v->contact_person).'"></div>';
+    print '<div class="form-group"><label>Direct Phone</label><input type="text" name="contact_phone" value="'.dol_escape_htmltag($v->contact_phone).'"></div>';
+    print '</div>';
+    
+    print '<div class="form-group"><label>Direct Email</label><input type="email" name="contact_email" value="'.dol_escape_htmltag($v->contact_email).'"></div>';
+    
+    print '<h3 style="margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 25px; color:#667eea;">Admin Controls</h3>';
+    
+    // FETCH CURRENT STATUS
+    $res = $db->query("SELECT status FROM ".MAIN_DB_PREFIX."foodbank_vendors WHERE rowid=".$v->id);
+    $curr_status = ($res && $obj = $db->fetch_object($res)) ? $obj->status : 'Active';
+
+    print '<div class="form-group"><label>Vendor Status</label>';
+    print '<select name="status" style="font-weight:bold;">';
+    print '<option value="Active" '.($curr_status=='Active'?'selected':'').' style="color:green;">✅ Active</option>';
+    print '<option value="Inactive" '.($curr_status=='Inactive'?'selected':'').' style="color:red;">❌ Inactive</option>';
+    print '</select></div>';
+
+    print '<div class="form-group"><label>Internal Notes</label><textarea name="description" rows="3">'.dol_escape_htmltag($v->description).'</textarea></div>';
+
+    print '<div style="margin-top: 30px; text-align: center;">';
+    print '<button type="submit" class="butAction" style="padding: 12px 40px; font-size: 16px;">Save Changes</button>';
+    print '</div>';
+
+    print '</form>';
+    print '</div>';
+}
+
+print '</div>';
+llxFooter();
+?>

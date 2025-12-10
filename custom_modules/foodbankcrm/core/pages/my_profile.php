@@ -68,7 +68,7 @@ body { background: #f8f9fa !important; }
 .login_block { width: 100% !important; }
 </style>';
 
-print '<div style="width: 100%; padding: 30px; box-sizing: border-box;">';
+print '<div style="width: 100%; padding: 30px; box-sizing: border-box; max-width: 1200px; margin: 0 auto;">';
 
 print '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">';
 print '<h1 style="margin: 0;">👤 My Profile</h1>';
@@ -83,7 +83,7 @@ print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
 print '<input type="hidden" name="action" value="update">';
 
 print '<div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">';
-print '<h2 style="margin-top: 0;">Personal Information</h2>';
+print '<h2 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 15px;">Personal Information</h2>';
 
 print '<div style="margin-bottom: 20px;">';
 print '<label style="display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px;">First Name</label>';
@@ -126,7 +126,7 @@ print '<div>';
 
 // Account Information Card
 print '<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">';
-print '<h3 style="margin: 0 0 20px 0; font-size: 18px;">📋 Account Information</h3>';
+print '<h3 style="margin: 0 0 20px 0; font-size: 18px; border-bottom: 1px solid rgba(255,255,255,0.3); padding-bottom: 10px;">📋 Account Information</h3>';
 print '<div style="margin-bottom: 15px;">';
 print '<div style="opacity: 0.9; font-size: 13px; margin-bottom: 3px;">Subscriber ID:</div>';
 print '<div style="font-weight: bold; font-size: 20px;">'.dol_escape_htmltag($subscriber->ref).'</div>';
@@ -143,7 +143,7 @@ print '</div>';
 
 // Subscription Card
 print '<div style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px;">';
-print '<h3 style="margin: 0 0 20px 0; font-size: 18px;">💳 Subscription</h3>';
+print '<h3 style="margin: 0 0 20px 0; font-size: 18px; border-bottom: 1px solid #eee; padding-bottom: 10px;">💳 Subscription</h3>';
 print '<div style="margin-bottom: 15px;">';
 print '<div style="color: #666; font-size: 13px; margin-bottom: 3px;">Plan:</div>';
 print '<div style="font-weight: bold; font-size: 20px;">'.dol_escape_htmltag($subscriber->subscription_type ?: 'Guest').'</div>';
@@ -163,10 +163,13 @@ if (!empty($subscriber->subscription_fee)) {
 print '</div>';
 
 // Password Change Card
-print '<div style="background: #fff3cd; border: 2px solid #ffc107; padding: 20px; border-radius: 8px;">';
-print '<h3 style="margin: 0 0 10px 0; font-size: 16px;">🔐 Change Password</h3>';
-print '<p style="margin: 0 0 15px 0; font-size: 14px; color: #856404;">To change your password, use the Dolibarr account settings page.</p>';
-print '<a href="/user/card.php?id='.$user->id.'" class="butAction" style="margin: 0; padding: 10px 20px; font-size: 14px;">GO TO ACCOUNT SETTINGS</a>';
+print '<div style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">';
+print '<h3 style="margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid #eee; padding-bottom: 10px;">🔐 Change Password</h3>';
+print '<p style="margin: 0 0 15px 0; font-size: 14px; color: #666;">Secure your account by updating your password.</p>';
+// UPDATED LINK
+print '<div style="text-align: center;">';
+print '<a href="subscriber_password.php" class="butAction">Change Password</a>';
+print '</div>';
 print '</div>';
 
 print '</div>';

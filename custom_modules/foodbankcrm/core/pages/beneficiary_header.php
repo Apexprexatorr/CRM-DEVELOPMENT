@@ -37,19 +37,3 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>';
 ?>
-```
-
----
-
-## **FIX 3: Update product_catalog.php to Use Header**
-```
-📁 FILE PATH: 
-/var/www/html/custom/foodbankcrm/core/pages/product_catalog.php
-
-📝 INSTRUCTIONS:
-1. Open this file
-2. Find the line that says: llxHeader(...);
-   (Around line 10-20)
-3. RIGHT AFTER llxHeader, add this line:
-
-require_once __DIR__ . '/beneficiary_header.php';

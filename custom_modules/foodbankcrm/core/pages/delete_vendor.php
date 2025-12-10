@@ -1,100 +1,84 @@
 <?php
 require_once dirname(__DIR__, 4) . '/main.inc.php';
 require_once dirname(__DIR__, 3) . '/foodbankcrm/class/vendor.class.php';
-require_once dirname(__DIR__, 3) . '/foodbankcrm/class/vendorproduct.class.php';
-
 $langs->load("admin");
-llxHeader();
+llxHeader('', 'Delete Vendor');
 
-if (!isset($_GET['id']) || empty($_GET['id'])) {
-    print '<div class="error">Vendor ID is missing.</div>';
-    print '<div><a href="vendors.php">← Back to Vendors</a></div>';
+print '<style>
+    #id-top { display: none !important; }
+    .side-nav { top: 0 !important; height: 100vh !important; }
+    #id-right { padding-top: 50px !important; }
+    #mainmenutd_commercial, #mainmenutd_billing, #mainmenutd_compta, 
+    #mainmenutd_projet, #mainmenutd_mrp, #mainmenutd_hrm, 
+    #mainmenutd_ticket, #mainmenutd_agenda, #mainmenutd_documents, #mainmenutd_bank { display: none !important; }
+    
+    .fb-container { max-width: 600px; margin: 0 auto; text-align: center; }
+    .warning-card { background: #fff; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 40px; border-top: 6px solid #dc3545; }
+    .warning-icon { font-size: 60px; margin-bottom: 20px; display: block; opacity: 0.8; }
+    .detail-box { background: #f9f9f9; padding: 20px; border-radius: 8px; margin: 25px 0; text-align: left; border: 1px solid #eee; }
+    .btn-group { display: flex; gap: 15px; justify-content: center; margin-top: 30px; }
+    
+    .button-danger { background-color: #dc3545; color: white; padding: 12px 30px; border-radius: 6px; border: none; font-weight: bold; text-decoration: none; cursor: pointer; }
+    .button-cancel { background-color: #e2e6ea; color: #495057; padding: 12px 30px; border-radius: 6px; border: 1px solid #dae0e5; text-decoration: none; font-weight: bold; }
+</style>';
+
+if (!isset($_GET['id']) || empty($_GET['id'])) { header("Location: vendors.php"); exit; }
+
+$id = (int)$_GET['id'];
+
+// --- FIX: Use VendorFB instead of Vendor ---
+$v = new VendorFB($db);
+
+print '<div class="fb-container">';
+
+if ($v->fetch($id) <= 0) {
+    print '<div class="warning-card" style="border-top-color: #666;"><h2>Vendor Not Found</h2><br><a href="vendors.php" class="button-cancel">Return to List</a></div></div>';
     llxFooter(); exit;
 }
 
-$vendor_id = (int) $_GET['id'];
-
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    // CONFIRMATION PAGE - Show before deleting
-    $vendor = new Vendor($db);
-    $vendor->fetch($vendor_id);
+    print '<div class="warning-card">';
+    print '<span class="warning-icon">⚠️</span>';
+    print '<h2 style="margin: 0 0 10px 0; color: #dc3545;">Delete Vendor?</h2>';
+    print '<p style="color: #666;">This action is permanent and cannot be undone.</p>';
     
-    // Check for products
-    $products = VendorProduct::getAllByVendor($db, $vendor_id);
-    $product_count = count($products);
-    
-    // Check for donations using this vendor
-    $sql = "SELECT COUNT(*) as count FROM ".MAIN_DB_PREFIX."foodbank_donations WHERE fk_vendor = ".$vendor_id;
-    $resql = $db->query($sql);
-    $donation_count = 0;
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        $donation_count = $obj->count;
-    }
-    
-    print '<div class="warning" style="padding: 20px; border: 2px solid #f57c00; background: #fff3e0;">';
-    print '<h3 style="margin-top: 0;">⚠ Confirm Vendor Deletion</h3>';
-    print '<p><strong>Vendor:</strong> '.dol_escape_htmltag($vendor->ref).' - '.dol_escape_htmltag($vendor->name).'</p>';
-    print '<p><strong>Products in catalog:</strong> '.$product_count.'</p>';
-    print '<p><strong>Donations from this vendor:</strong> '.$donation_count.'</p>';
-    
-    if ($donation_count > 0) {
-        print '<div class="error" style="margin-top: 15px; padding: 15px; background: #ffebee; border: 2px solid #d32f2f;">';
-        print '<h4 style="margin-top: 0; color: #d32f2f;">❌ Cannot Delete This Vendor</h4>';
-        print '<p>This vendor has <strong>'.$donation_count.' donation(s)</strong> in the system.</p>';
-        print '<p>To delete this vendor, you must first:</p>';
-        print '<ul>';
-        print '<li>Delete all donations from this vendor, OR</li>';
-        print '<li>Change those donations to a different vendor</li>';
-        print '</ul>';
-        print '<p><strong>This protection cannot be bypassed.</strong></p>';
-        print '</div>';
-        print '<br><a class="button" href="vendors.php">← Back to Vendors</a>';
-        print '</div>';
+    print '<div class="detail-box">';
+    print '<strong>Business:</strong> '.dol_escape_htmltag($v->name).'<br>';
+    print '<strong>Contact:</strong> '.dol_escape_htmltag($v->contact_person).'<br>';
+    print '<strong>Ref ID:</strong> '.dol_escape_htmltag($v->ref);
+    print '</div>';
+
+    print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$id.'">';
+    print '<input type="hidden" name="token" value="'.newToken().'">';
+    print '<div class="btn-group">';
+    print '<a href="vendors.php" class="button-cancel">Cancel</a>';
+    print '<button type="submit" name="confirm" class="button-danger">Yes, Delete Vendor</button>';
+    print '</div>';
+    print '</form>';
+    print '</div>';
+
+} else {
+    if (!isset($_POST['token']) || $_POST['token'] != $_SESSION['newtoken']) {
+        print '<div class="error">Security token expired.</div>';
     } else {
-        // Safe to delete
-        if ($product_count > 0) {
-            print '<div style="margin-top: 15px; padding: 15px; background: #fff8e1; border: 2px solid #ff9800;">';
-            print '<h4 style="margin-top: 0; color: #f57c00;">⚠ Warning: This Vendor Has Products</h4>';
-            print '<p>This vendor has <strong>'.$product_count.' product(s)</strong> in the catalog:</p>';
-            print '<ul>';
-            foreach ($products as $product) {
-                print '<li>'.dol_escape_htmltag($product->product_name).' ('.$product->typical_quantity.' '.$product->unit.')</li>';
-            }
-            print '</ul>';
-            print '<p><strong>All these products will also be deleted permanently.</strong></p>';
+        $res = $v->delete($user);
+        if ($res > 0) {
+            print '<div class="warning-card" style="border-top-color: #28a745;">';
+            print '<span class="warning-icon">✅</span>';
+            print '<h2 style="color: #28a745; margin-top:0;">Deleted Successfully</h2>';
+            print '<br><a href="vendors.php" class="button-cancel" style="background:#28a745; color:white;">Back to Vendors</a>';
+            print '</div>';
+        } else {
+            print '<div class="warning-card" style="border-top-color: #ffc107;">';
+            print '<span class="warning-icon">🚫</span>';
+            print '<h2 style="margin-top:0;">Cannot Delete Vendor</h2>';
+            print '<p style="color: #666;">This vendor has linked donations and cannot be deleted safely.</p>';
+            print '<br><a href="vendors.php" class="button-cancel">Back to List</a>';
             print '</div>';
         }
-        
-        print '<p style="color: #d32f2f; font-weight: bold; margin-top: 20px;">This action cannot be undone.</p>';
-        print '</div>';
-        
-        print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$vendor_id.'">';
-        print '<input type="hidden" name="token" value="'.newToken().'">';
-        print '<input class="button butActionDelete" type="submit" name="confirm" value="Yes, Delete Vendor'.($product_count > 0 ? ' and '.$product_count.' Product(s)' : '').'">';
-        print ' <a class="button" href="vendors.php">Cancel</a>';
-        print '</form>';
-    }
-} else {
-    // PROCESS DELETION
-    if (!isset($_POST['token']) || $_POST['token'] != $_SESSION['newtoken']) {
-        print '<div class="error">Security check failed: invalid CSRF token.</div>';
-    } else {
-        $vendor = new Vendor($db);
-        $vendor->fetch($vendor_id);
-        
-        $result = $vendor->delete($user);
-        
-        if ($result > 0) {
-            print '<div class="ok">Vendor and all associated products deleted successfully!</div>';
-        } elseif ($result == -2) {
-            print '<div class="error">'.$vendor->error.'</div>';
-        } else {
-            print '<div class="error">Error deleting vendor: '.$vendor->error.'</div>';
-        }
-        print '<div><a href="vendors.php">← Back to Vendors</a></div>';
     }
 }
 
+print '</div>';
 llxFooter();
 ?>

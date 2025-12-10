@@ -1,83 +1,53 @@
 <?php
 require_once dirname(__DIR__, 4) . '/main.inc.php';
 require_once dirname(__DIR__, 3) . '/foodbankcrm/class/package.class.php';
-
 $langs->load("admin");
-llxHeader();
+llxHeader('', 'Delete Package');
 
-if (!isset($_GET['id']) || empty($_GET['id'])) {
-    print '<div class="error">Package ID is missing.</div>';
-    print '<div><a href="packages.php">← Back to Packages</a></div>';
+print '<style>
+    div#id-top, #id-top { display: none !important; }
+    .side-nav { top: 0 !important; height: 100vh !important; }
+    #id-right { padding-top: 50px !important; }
+    #mainmenutd_commercial, #mainmenutd_billing, #mainmenutd_compta, 
+    #mainmenutd_projet, #mainmenutd_mrp, #mainmenutd_hrm, 
+    #mainmenutd_ticket, #mainmenutd_agenda, #mainmenutd_documents, #mainmenutd_bank { display: none !important; }
+    
+    .fb-container { max-width: 600px; margin: 0 auto; text-align: center; }
+    .warning-card { background: #fff; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 40px; border-top: 6px solid #dc3545; }
+    .button-danger { background-color: #dc3545; color: white; padding: 12px 30px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; }
+    .button-cancel { background-color: #e2e6ea; color: #495057; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: bold; }
+</style>';
+
+$id = (int)$_GET['id'];
+$p = new Package($db);
+
+print '<div class="fb-container">';
+
+if ($p->fetch($id) <= 0) {
+    print '<div class="warning-card"><h2>Package Not Found</h2><br><a href="packages.php" class="button-cancel">Return to List</a></div>';
     llxFooter(); exit;
 }
 
-$package_id = (int) $_GET['id'];
-
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    // Fetch package details for confirmation
-    $package = new Package($db);
-    $package->fetch($package_id);
-    
-    // Check usage count
-    $sql = "SELECT COUNT(*) as count FROM ".MAIN_DB_PREFIX."foodbank_distributions WHERE fk_package = ".$package_id;
-    $resql = $db->query($sql);
-    $usage_count = 0;
-    if ($resql) {
-        $obj = $db->fetch_object($resql);
-        $usage_count = $obj->count;
-    }
-    
-    // Get item count
-    $item_count = $package->getItemCount();
-    
-    print '<div class="warning" style="padding: 20px; border: 2px solid #f57c00; background: #fff3e0;">';
-    print '<h3 style="margin-top: 0;">⚠ Confirm Package Deletion</h3>';
-    print '<p><strong>Package:</strong> '.dol_escape_htmltag($package->ref).' - '.dol_escape_htmltag($package->name).'</p>';
-    print '<p><strong>Items in package:</strong> '.$item_count.'</p>';
-    print '<p><strong>Used in distributions:</strong> '.$usage_count.'</p>';
-    
-    if ($usage_count > 0) {
-        print '<div class="error" style="margin-top: 15px; padding: 15px; background: #ffebee; border: 2px solid #d32f2f;">';
-        print '<h4 style="margin-top: 0; color: #d32f2f;">❌ Cannot Delete This Package</h4>';
-        print '<p>This package is currently used in <strong>'.$usage_count.' distribution(s)</strong>.</p>';
-        print '<p>To delete this package, you must first:</p>';
-        print '<ul>';
-        print '<li>Delete all distributions using this package, OR</li>';
-        print '<li>Change those distributions to use a different package</li>';
-        print '</ul>';
-        print '<p><strong>This protection cannot be bypassed.</strong></p>';
-        print '</div>';
-        print '<br><a class="button" href="packages.php">← Back to Packages</a>';
-        print '</div>';
-    } else {
-        print '<p style="color: #d32f2f; font-weight: bold;">This will permanently delete the package and all its items. This action cannot be undone.</p>';
-        print '</div>';
-        
-        print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$package_id.'">';
-        print '<input type="hidden" name="token" value="'.newToken().'">';
-        print '<input class="button butActionDelete" type="submit" name="confirm" value="Yes, Delete Package">';
-        print ' <a class="button" href="packages.php">Cancel</a>';
-        print '</form>';
-    }
+    print '<div class="warning-card">';
+    print '<h2 style="color: #dc3545;">Delete Package?</h2>';
+    print '<p>This will permanently delete the <strong>'.dol_escape_htmltag($p->name).'</strong> template.</p>';
+    print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$id.'">';
+    print '<input type="hidden" name="token" value="'.newToken().'">';
+    print '<div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center;">';
+    print '<a href="packages.php" class="button-cancel">Cancel</a>';
+    print '<button type="submit" name="confirm" class="button-danger">Yes, Delete</button>';
+    print '</div></form></div>';
 } else {
-    if (!isset($_POST['token']) || $_POST['token'] != $_SESSION['newtoken']) {
-        print '<div class="error">Security check failed: invalid CSRF token.</div>';
+    if (!isset($_POST['token']) || $_POST['token'] != $_SESSION['newtoken']) die("Invalid Token");
+    
+    if ($p->delete($user) > 0) {
+        print '<div class="warning-card" style="border-top-color: #28a745;"><h2>Deleted Successfully</h2><br><a href="packages.php" class="button-cancel">Back to List</a></div>';
     } else {
-        $package = new Package($db);
-        $package->fetch($package_id);
-        
-        $result = $package->delete($user);
-        
-        if ($result > 0) {
-            print '<div class="ok">Package deleted successfully!</div>';
-        } elseif ($result == -2) {
-            print '<div class="error">'.$package->error.'</div>';
-        } else {
-            print '<div class="error">Error deleting package: '.$package->error.'</div>';
-        }
-        print '<div><a href="packages.php">← Back to Packages</a></div>';
+        print '<div class="warning-card"><h2>Cannot Delete</h2><p>Error: '.$p->error.'</p><br><a href="packages.php" class="button-cancel">Back to List</a></div>';
     }
 }
 
+print '</div>';
 llxFooter();
 ?>

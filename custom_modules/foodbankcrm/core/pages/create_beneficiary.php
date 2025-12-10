@@ -3,67 +3,129 @@ require_once dirname(__DIR__, 4) . '/main.inc.php';
 require_once dirname(__DIR__, 3) . '/foodbankcrm/class/beneficiary.class.php'; 
 
 $langs->load("admin");
-llxHeader();
+llxHeader('', 'Create Subscriber');
+
+// --- MODERN UI STYLES ---
+print '<style>
+    /* Hide Dolibarr Top Bar */
+    #id-top { display: none !important; }
+    .side-nav { top: 0 !important; height: 100vh !important; }
+    #id-right { padding-top: 30px !important; }
+    
+    .fb-container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+    .fb-card { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 40px; border: 1px solid #eee; }
+    
+    /* Form Inputs */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 13px; color: #444; }
+    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; box-sizing: border-box; transition: border-color 0.2s; }
+    .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: #667eea; outline: none; }
+    
+    /* --- MODERN PLAN SELECTION CARDS --- */
+    .plan-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+        gap: 20px; 
+        margin-top: 15px; 
+    }
+    
+    .plan-option input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+    
+    .plan-card { 
+        display: block;
+        background: #fff;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 25px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+    
+    .plan-card:hover { border-color: #b3b3b3; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    
+    .plan-option input[type="radio"]:checked + .plan-card {
+        border-color: #667eea;
+        background-color: #f5f7ff;
+        box-shadow: 0 0 0 1px #667eea;
+    }
+    
+    .plan-name { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 10px; display: block; font-weight: 600; }
+    .plan-price { font-size: 28px; font-weight: 800; color: #333; margin-bottom: 5px; display: block; }
+    .plan-duration { font-size: 13px; color: #888; margin-bottom: 15px; display: block; }
+    .plan-feature { font-size: 13px; color: #555; border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px; display: block; }
+    
+    .check-icon {
+        position: absolute; top: 10px; right: 10px; width: 20px; height: 20px;
+        background: #667eea; color: white; border-radius: 50%; display: none;
+        align-items: center; justify-content: center; font-size: 12px; font-weight: bold;
+    }
+    
+    .plan-option input[type="radio"]:checked + .plan-card .check-icon { display: flex; }
+
+    .info-box { margin-top: 30px; background: #e8f5e9; padding: 20px; border-radius: 8px; border-left: 4px solid #4caf50; font-size: 14px; line-height: 1.5; color: #2e7d32; }
+</style>';
 
 $notice = '';
+
+// --- LOGIC ---
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (!isset($_POST['token']) || $_POST['token'] != $_SESSION['newtoken']) {
         $notice = '<div class="error">Security check failed: invalid CSRF token.</div>';
     } else {
         $b = new Beneficiary($db);
-        $b->ref = $_POST['ref']; // Will auto-generate if empty
+        $b->ref = $_POST['ref']; 
         $b->firstname = $_POST['firstname'];
         $b->lastname = $_POST['lastname'];
         $b->email = $_POST['email'];
         $b->phone = $_POST['phone'];
         $b->address = $_POST['address'];
-        $b->household_size = $_POST['household_size'];
+        $b->household_size = (int)$_POST['household_size'];
         $b->note = $_POST['note'];
         
-        // NEW: Subscription fields
-        $subscription_type = GETPOST('subscription_type', 'alpha');
-        $subscription_status = 'Pending'; // Default to pending until payment
+        // Capture Status Selection
+        $selected_status = GETPOST('subscription_status', 'alpha');
+        $b->subscription_status = $selected_status ? $selected_status : 'Pending';
         
         $res = $b->create($user);
+        
         if ($res > 0) {
             // Update subscription fields
             $tier_id = GETPOST('subscription_tier', 'int');
-            
             if ($tier_id > 0) {
-                // Get tier details
                 $sql = "SELECT * FROM ".MAIN_DB_PREFIX."foodbank_subscription_tiers WHERE rowid = ".(int)$tier_id;
-                $resql = $db->query($sql);
-                $tier = $db->fetch_object($resql);
-                
-                if ($tier) {
-                    // Calculate end date
-                    $start_date = date('Y-m-d');
-                    $end_date = date('Y-m-d', strtotime('+'.$tier->duration_months.' months'));
-                    
-                    // Update beneficiary with subscription info
-                    $sql = "UPDATE ".MAIN_DB_PREFIX."foodbank_beneficiaries SET 
-                            subscription_type = '".$db->escape($tier->tier_type)."',
-                            subscription_status = 'Pending',
-                            subscription_start_date = '".$start_date."',
-                            subscription_end_date = '".$end_date."',
-                            subscription_fee = ".(float)$tier->price."
-                            WHERE rowid = ".(int)$res;
-                    $db->query($sql);
+                $tier_res = $db->query($sql);
+                if ($tier_res) {
+                    $tier = $db->fetch_object($tier_res);
+                    if ($tier) {
+                        $start_date = date('Y-m-d');
+                        $end_date = date('Y-m-d', strtotime('+'.$tier->duration_months.' months'));
+                        
+                        $sql_upd = "UPDATE ".MAIN_DB_PREFIX."foodbank_beneficiaries SET 
+                                    subscription_type = '".$db->escape($tier->tier_type)."',
+                                    subscription_status = '".$db->escape($b->subscription_status)."', 
+                                    subscription_start_date = '".$start_date."',
+                                    subscription_end_date = '".$end_date."',
+                                    subscription_fee = ".(float)$tier->price."
+                                    WHERE rowid = ".(int)$res;
+                        $db->query($sql_upd);
+                    }
                 }
             }
             
-            $notice = '<div class="ok">Subscriber created successfully! Ref: '.$b->ref.' (ID: '.$res.')';
-            if ($tier_id > 0) {
-                $notice .= '<br>📧 Payment instructions will be sent to their email.';
-            }
-            $notice .= '</div>';
+            // Redirect with message
+            setEventMessages("Subscriber created successfully", null, 'mesgs');
+            header("Location: beneficiaries.php");
+            exit;
         } else {
             $notice = '<div class="error">Error creating subscriber: '.dol_escape_htmltag($b->error).'</div>';
         }
     }
 }
 
-// Get available subscription tiers
+// Get Tiers
 $subscription_tiers = array();
 $sql = "SELECT * FROM ".MAIN_DB_PREFIX."foodbank_subscription_tiers WHERE is_active = 1 ORDER BY price ASC";
 $resql = $db->query($sql);
@@ -73,99 +135,101 @@ if ($resql) {
     }
 }
 
+print '<div class="fb-container">';
+
+// HEADER
+print '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-top: 20px;">';
+print '<div><h1 style="margin: 0;">👤 New Subscriber</h1><p style="color:#888; margin: 5px 0 0 0;">Create a new beneficiary account</p></div>';
+print '<div>';
+print '<a href="beneficiaries.php" class="button" style="background:#eee; color:#333; margin-right: 10px;">Cancel</a>';
+print '<a href="dashboard_admin.php" class="button" style="background:#333; color:#fff;">Back to Dashboard</a>';
+print '</div>';
+print '</div>';
+
 print $notice;
-print '<div><a href="beneficiaries.php">← Back to Subscribers</a></div><br>';
-?>
 
-<h2>Create Subscriber</h2>
-<form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
-  <input type="hidden" name="token" value="<?php echo newToken(); ?>">
-  
-  <table class="border centpercent">
-    <tr>
-      <td width="25%">Ref</td>
-      <td><input class="flat" type="text" name="ref" placeholder="Leave empty for auto-generation (BEN2025-0001)"></td>
-    </tr>
-    <tr>
-      <td><span class="fieldrequired">First Name</span></td>
-      <td><input class="flat" type="text" name="firstname" required></td>
-    </tr>
-    <tr>
-      <td><span class="fieldrequired">Last Name</span></td>
-      <td><input class="flat" type="text" name="lastname" required></td>
-    </tr>
-    <tr>
-      <td>Email</td>
-      <td><input class="flat" type="email" name="email"></td>
-    </tr>
-    <tr>
-      <td>Phone</td>
-      <td><input class="flat" type="text" name="phone"></td>
-    </tr>
-    <tr>
-      <td>Address</td>
-      <td><textarea class="flat" name="address" rows="3"></textarea></td>
-    </tr>
-    <tr>
-      <td>Household Size</td>
-      <td><input class="flat" type="number" name="household_size" min="1" value="1"></td>
-    </tr>
-    <tr>
-      <td>Note</td>
-      <td><textarea class="flat" name="note" rows="3"></textarea></td>
-    </tr>
+if (!isset($hide_form)) {
+    print '<div class="fb-card">';
+    print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
+    print '<input type="hidden" name="token" value="'.newToken().'">';
+
+    print '<h3 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 25px;">Personal Information</h3>';
+
+    print '<div class="form-grid">';
+    print '<div class="form-group"><label>First Name <span style="color:red">*</span></label><input type="text" name="firstname" required placeholder="e.g. John"></div>';
+    print '<div class="form-group"><label>Last Name <span style="color:red">*</span></label><input type="text" name="lastname" required placeholder="e.g. Doe"></div>';
+    print '</div>';
+
+    print '<div class="form-grid">';
+    print '<div class="form-group"><label>Email</label><input type="email" name="email" placeholder="john@example.com"></div>';
+    print '<div class="form-group"><label>Phone</label><input type="text" name="phone" placeholder="080..."></div>';
+    print '</div>';
+
+    print '<div class="form-group"><label>Address</label><textarea name="address" rows="2" placeholder="Residential address"></textarea></div>';
+
+    print '<div class="form-grid">';
+    print '<div class="form-group"><label>Household Size</label><input type="number" name="household_size" min="1" value="1"></div>';
+    print '<div class="form-group"><label>Reference ID (Optional)</label><input type="text" name="ref" placeholder="Auto-generated if empty"></div>';
+    print '</div>';
     
-    <!-- NEW: Subscription Section -->
-    <tr class="liste_titre">
-      <td colspan="2"><h3 style="margin: 10px 0;">💳 Subscription Plan</h3></td>
-    </tr>
-    <tr>
-      <td><span class="fieldrequired">Select Plan</span></td>
-      <td>
-        <?php if (count($subscription_tiers) > 0): ?>
-        <table class="noborder" style="width: 100%;">
-          <?php foreach ($subscription_tiers as $tier): ?>
-          <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 10px;">
-              <input type="radio" name="subscription_tier" value="<?php echo $tier->rowid; ?>" id="tier_<?php echo $tier->rowid; ?>" required>
-              <label for="tier_<?php echo $tier->rowid; ?>" style="cursor: pointer;">
-                <strong><?php echo dol_escape_htmltag($tier->tier_name); ?></strong> 
-                (<?php echo dol_escape_htmltag($tier->tier_type); ?>)
-                - <strong>₦<?php echo number_format($tier->price, 2); ?></strong>
-                <br>
-                <span style="font-size: 12px; color: #666;">
-                  <?php echo $tier->duration_months; ?> months | <?php echo dol_escape_htmltag($tier->description); ?>
-                </span>
-              </label>
-            </td>
-          </tr>
-          <?php endforeach; ?>
-        </table>
-        <?php else: ?>
-        <div class="warning">No subscription tiers available. <a href="create_subscription_tier.php">Create a tier first</a>.</div>
-        <?php endif; ?>
-      </td>
-    </tr>
-  </table>
-  
-  <br>
-  <div class="center">
-    <input class="button" type="submit" value="Create Subscriber" <?php echo count($subscription_tiers) == 0 ? 'disabled' : ''; ?>>
-    <a class="button" href="beneficiaries.php">Cancel</a>
-  </div>
-</form>
+    print '<div class="form-group"><label>Internal Note</label><textarea name="note" rows="2" placeholder="Admin notes..."></textarea></div>';
 
-<?php if (count($subscription_tiers) > 0): ?>
-<div style="margin-top: 20px; background: #e8f5e9; padding: 15px; border-radius: 5px; border-left: 4px solid #4caf50;">
-  <h4 style="margin-top: 0;">💡 Subscription Process</h4>
-  <ol style="margin-bottom: 0;">
-    <li>Create subscriber and select a subscription plan</li>
-    <li>Subscriber receives payment instructions via email</li>
-    <li>Admin confirms payment manually (until Paystack is integrated)</li>
-    <li>Subscription status changes to "Active"</li>
-    <li>Subscriber can then access product catalog and place orders</li>
-  </ol>
-</div>
-<?php endif; ?>
+    // MODERN SUBSCRIPTION SECTION
+    print '<h3 style="margin-top: 40px; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px;">💳 Select Subscription Plan</h3>';
 
-<?php llxFooter(); ?>
+    // NEW: STATUS TOGGLE
+    print '<div class="form-group" style="max-width: 300px; margin-bottom: 20px;">';
+    print '<label>Initial Status</label>';
+    print '<select name="subscription_status" style="font-weight:bold; color: #444;">';
+    print '<option value="Pending" selected>⏳ Pending (Awaiting Payment)</option>';
+    print '<option value="Active" style="color: green;">✅ Active (Payment Received)</option>';
+    print '</select>';
+    print '</div>';
+
+    if (count($subscription_tiers) > 0) {
+        print '<div class="plan-grid">';
+        foreach ($subscription_tiers as $tier) {
+            print '<label class="plan-option">';
+            // Hidden Radio Input
+            print '<input type="radio" name="subscription_tier" value="'.$tier->rowid.'" required>';
+            
+            // Visible Card
+            print '<div class="plan-card">';
+            print '<div class="check-icon">✓</div>';
+            print '<span class="plan-name">'.dol_escape_htmltag($tier->tier_name).'</span>';
+            print '<span class="plan-price">₦'.number_format($tier->price).'</span>';
+            print '<span class="plan-duration">per '.$tier->duration_months.' months</span>';
+            if ($tier->description) {
+                print '<span class="plan-feature">'.dol_escape_htmltag($tier->description).'</span>';
+            }
+            print '</div>';
+            print '</label>';
+        }
+        print '</div>';
+    } else {
+        print '<div style="padding: 15px; background: #fff3cd; color: #856404; border-radius: 5px;">No subscription tiers found. The Default "Standard Access" will be applied.</div>';
+    }
+
+    print '<div style="margin-top: 40px; text-align: center;">';
+    print '<button type="submit" class="butAction" style="padding: 15px 50px; font-size: 16px; font-weight: bold; border-radius: 30px;">Create Subscriber</button>';
+    print '</div>';
+
+    print '</form>';
+    print '</div>'; // End Card
+
+    // Process Info Box
+    if (count($subscription_tiers) > 0) {
+        print '<div class="info-box">';
+        print '<h4 style="margin-top: 0; margin-bottom: 10px;">💡 Status Guide</h4>';
+        print '<ul style="margin-bottom: 0; padding-left: 20px;">';
+        print '<li><strong>Pending:</strong> Choose this if you are sending an invoice or waiting for a bank transfer.</li>';
+        print '<li><strong>Active:</strong> Choose this if they have already paid cash or you want to grant immediate access.</li>';
+        print '</ul>';
+        print '</div>';
+    }
+}
+
+print '</div>'; // End Container
+
+llxFooter();
+?>

@@ -7,9 +7,6 @@ require_once DOL_DOCUMENT_ROOT.'/core/triggers/dolibarrtriggers.class.php';
 
 class InterfaceRedirect extends DolibarrTriggers
 {
-    /**
-     * Constructor
-     */
     public function __construct($db)
     {
         $this->db = $db;
@@ -20,30 +17,31 @@ class InterfaceRedirect extends DolibarrTriggers
         $this->picto = 'foodbankcrm@foodbankcrm';
     }
 
-    /**
-     * Function called when a Dolibarr business event is triggered
-     */
     public function runTrigger($action, $object, $user, $langs, $conf)
     {
         // Only trigger on successful login
         if ($action == 'USER_LOGIN') {
             require_once DOL_DOCUMENT_ROOT.'/custom/foodbankcrm/class/permissions.class.php';
             
-            // Check user role and set redirect URL
             $redirect_url = '';
             
+            // 1. Check Admin
             if (FoodbankPermissions::isAdmin($user)) {
                 $redirect_url = '/custom/foodbankcrm/core/pages/dashboard_admin.php';
-            } elseif (FoodbankPermissions::isVendor($user, $this->db)) {
+            } 
+            // 2. Check Vendor
+            elseif (FoodbankPermissions::isVendor($user, $this->db)) {
                 $redirect_url = '/custom/foodbankcrm/core/pages/dashboard_vendor.php';
-            } elseif (FoodbankPermissions::isBeneficiary($user, $this->db)) {
+            } 
+            // 3. Check Beneficiary
+            elseif (FoodbankPermissions::isBeneficiary($user, $this->db)) {
                 $redirect_url = '/custom/foodbankcrm/core/pages/dashboard_beneficiary.php';
             }
             
-            // If a custom dashboard exists, redirect
+            // 4. FORCE REDIRECT
             if ($redirect_url) {
-                // Store redirect URL in session
-                $_SESSION['foodbankcrm_redirect'] = $redirect_url;
+                header("Location: " . DOL_URL_ROOT . $redirect_url);
+                exit;
             }
         }
         

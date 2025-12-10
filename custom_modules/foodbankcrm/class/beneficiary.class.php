@@ -1,31 +1,40 @@
 <?php
-// htdocs/custom/foodbankcrm/class/beneficiary.class.php
-
 require_once DOL_DOCUMENT_ROOT . '/core/class/commonobject.class.php';
 
 class Beneficiary extends CommonObject
 {
-    public $element       = 'foodbank_beneficiary';
+    public $element = 'foodbank_beneficiary';
     public $table_element = 'foodbank_beneficiaries';
-    public $picto         = 'user';
+    public $picto = 'users';
 
     public $id;
     public $ref;
     public $firstname;
     public $lastname;
-    public $phone;
     public $email;
+    public $phone;
     public $address;
+    
+    // NEW FIELDS
+    public $household_size; 
+    public $subscription_type;
+    public $subscription_status;
+    public $subscription_start_date;
+    public $subscription_end_date;
+    public $subscription_fee;
+    
     public $note;
     public $entity;
+    public $date_creation;
 
     public function __construct($db)
     {
         $this->db = $db;
-        $this->entity = isset($conf->entity) ? $conf->entity : 1;
+        $this->entity = isset($GLOBALS['conf']->entity) ? (int) $GLOBALS['conf']->entity : 1;
+        $this->household_size = 1;
+        $this->subscription_status = 'Pending';
     }
 
-    // EXACT SAME AS DONATIONFB
     public function create($user = null, $notrigger = false)
     {
         if (empty($this->ref)) {
@@ -34,45 +43,65 @@ class Beneficiary extends CommonObject
 
         $this->db->begin();
 
-        $sql = "INSERT INTO ".MAIN_DB_PREFIX.$this->table_element." (";
-        $sql.= "ref, firstname, lastname, phone, email, address, note, entity, datec";
-        $sql.= ") VALUES (";
-        $sql.= "'".$this->db->escape($this->ref)."', ";
-        $sql.= "'".$this->db->escape($this->firstname)."', ";
-        $sql.= "'".$this->db->escape($this->lastname)."', ";
-        $sql.= "'".$this->db->escape($this->phone)."', ";
-        $sql.= "'".$this->db->escape($this->email)."', ";
-        $sql.= "'".$this->db->escape($this->address)."', ";
-        $sql.= "'".$this->db->escape($this->note)."', ";
-        $sql.= (int)$this->entity.", ";
-        $sql.= "NOW()";
-        $sql.= ")";
+        $sql = "INSERT INTO " . MAIN_DB_PREFIX . $this->table_element . " (";
+        $sql .= "ref, firstname, lastname, email, phone, address, household_size, note, ";
+        $sql .= "subscription_type, subscription_status, subscription_start_date, subscription_end_date, subscription_fee, ";
+        $sql .= "entity, datec";
+        $sql .= ") VALUES (";
+        $sql .= "'" . $this->db->escape($this->ref) . "',";
+        $sql .= "'" . $this->db->escape($this->firstname) . "',";
+        $sql .= "'" . $this->db->escape($this->lastname) . "',";
+        $sql .= "'" . $this->db->escape($this->email) . "',";
+        $sql .= "'" . $this->db->escape($this->phone) . "',";
+        $sql .= "'" . $this->db->escape($this->address) . "',";
+        $sql .= (int)$this->household_size . ",";
+        $sql .= "'" . $this->db->escape($this->note) . "',";
+        
+        // Subscription Values
+        $sql .= ($this->subscription_type ? "'" . $this->db->escape($this->subscription_type) . "'" : "NULL") . ",";
+        $sql .= "'" . $this->db->escape($this->subscription_status) . "',";
+        $sql .= ($this->subscription_start_date ? "'" . $this->db->escape($this->subscription_start_date) . "'" : "NULL") . ",";
+        $sql .= ($this->subscription_end_date ? "'" . $this->db->escape($this->subscription_end_date) . "'" : "NULL") . ",";
+        $sql .= (float)$this->subscription_fee . ",";
+        
+        $sql .= (int)$this->entity . ",";
+        $sql .= "NOW()";
+        $sql .= ")";
 
         if ($this->db->query($sql)) {
-            $this->id = $this->db->last_insert_id(MAIN_DB_PREFIX.$this->table_element);
+            $this->id = $this->db->last_insert_id(MAIN_DB_PREFIX . $this->table_element);
             $this->db->commit();
             return $this->id;
+        } else {
+            $this->error = $this->db->lasterror();
+            $this->db->rollback();
+            return -1;
         }
-
-        $this->error = $this->db->lasterror();
-        $this->db->rollback();
-        return -1;
     }
 
     public function fetch($id)
     {
-        $sql = "SELECT * FROM ".MAIN_DB_PREFIX.$this->table_element." WHERE rowid = ".(int)$id;
+        $sql = "SELECT * FROM " . MAIN_DB_PREFIX . $this->table_element . " WHERE rowid=" . (int)$id;
         $res = $this->db->query($sql);
-        if ($res && ($o = $this->db->fetch_object($res))) {
-            $this->id        = (int)$o->rowid;
-            $this->ref       = $o->ref;
-            $this->firstname = $o->firstname;
-            $this->lastname  = $o->lastname;
-            $this->phone     = $o->phone;
-            $this->email     = $o->email;
-            $this->address   = $o->address;
-            $this->note      = $o->note;
-            $this->entity    = (int)$o->entity;
+        if ($res && ($obj = $this->db->fetch_object($res))) {
+            $this->id = $obj->rowid;
+            $this->ref = $obj->ref;
+            $this->firstname = $obj->firstname;
+            $this->lastname = $obj->lastname;
+            $this->email = $obj->email;
+            $this->phone = $obj->phone;
+            $this->address = $obj->address;
+            $this->household_size = $obj->household_size;
+            $this->note = $obj->note;
+            
+            // Fetch Subscription Fields
+            $this->subscription_type = $obj->subscription_type;
+            $this->subscription_status = $obj->subscription_status;
+            $this->subscription_start_date = $obj->subscription_start_date;
+            $this->subscription_end_date = $obj->subscription_end_date;
+            $this->subscription_fee = $obj->subscription_fee;
+            
+            $this->date_creation = $obj->datec;
             return 1;
         }
         return 0;
@@ -80,43 +109,42 @@ class Beneficiary extends CommonObject
 
     public function update($user = null, $notrigger = false)
     {
-        if (empty($this->id)) return -1;
-
         $this->db->begin();
-
-        $sql = "UPDATE ".MAIN_DB_PREFIX.$this->table_element." SET ";
-        $sql.= "ref = '".$this->db->escape($this->ref)."', ";
-        $sql.= "firstname = '".$this->db->escape($this->firstname)."', ";
-        $sql.= "lastname = '".$this->db->escape($this->lastname)."', ";
-        $sql.= "phone = '".$this->db->escape($this->phone)."', ";
-        $sql.= "email = '".$this->db->escape($this->email)."', ";
-        $sql.= "address = '".$this->db->escape($this->address)."', ";
-        $sql.= "note = '".$this->db->escape($this->note)."', ";
-        $sql.= "tms = NOW() ";
-        $sql.= "WHERE rowid = ".(int)$this->id;
+        
+        $sql = "UPDATE " . MAIN_DB_PREFIX . $this->table_element . " SET ";
+        $sql .= "firstname = '" . $this->db->escape($this->firstname) . "',";
+        $sql .= "lastname = '" . $this->db->escape($this->lastname) . "',";
+        $sql .= "email = '" . $this->db->escape($this->email) . "',";
+        $sql .= "phone = '" . $this->db->escape($this->phone) . "',";
+        $sql .= "address = '" . $this->db->escape($this->address) . "',";
+        $sql .= "household_size = " . (int)$this->household_size . ",";
+        $sql .= "note = '" . $this->db->escape($this->note) . "',";
+        
+        // Update Subscription Fields
+        $sql .= "subscription_type = " . ($this->subscription_type ? "'" . $this->db->escape($this->subscription_type) . "'" : "NULL") . ",";
+        $sql .= "subscription_status = '" . $this->db->escape($this->subscription_status) . "',";
+        $sql .= "subscription_fee = " . (float)$this->subscription_fee;
+        
+        $sql .= " WHERE rowid = " . (int)$this->id;
 
         if ($this->db->query($sql)) {
             $this->db->commit();
             return 1;
+        } else {
+            $this->error = $this->db->lasterror();
+            $this->db->rollback();
+            return -1;
         }
-
-        $this->error = $this->db->lasterror();
-        $this->db->rollback();
-        return -1;
     }
 
     public function delete($user = null, $notrigger = false)
     {
-        if (empty($this->id)) return -1;
-
         $this->db->begin();
-        $sql = "DELETE FROM ".MAIN_DB_PREFIX.$this->table_element." WHERE rowid = ".(int)$this->id;
-
+        $sql = "DELETE FROM " . MAIN_DB_PREFIX . $this->table_element . " WHERE rowid=" . (int)$this->id;
         if ($this->db->query($sql)) {
             $this->db->commit();
             return 1;
         }
-
         $this->error = $this->db->lasterror();
         $this->db->rollback();
         return -1;
@@ -124,16 +152,12 @@ class Beneficiary extends CommonObject
 
     public function getNextRef()
     {
-        $sql = "SELECT MAX(CAST(SUBSTRING(ref, 9) AS UNSIGNED)) as lastnum";
-        $sql.= " FROM ".MAIN_DB_PREFIX.$this->table_element;
-        $sql.= " WHERE ref LIKE 'BEN".date('Y')."%' AND entity = ".(int)$this->entity;
-
-        $resql = $this->db->query($sql);
-        if ($resql && ($obj = $this->db->fetch_object($resql))) {
-            $next = ($obj->lastnum ? $obj->lastnum + 1 : 1);
-        } else {
-            $next = 1;
-        }
-        return 'BEN'.date('Y').'-'.sprintf('%04d', $next);
+        // Simple sequential numbering BEN2025-0001
+        $sql = "SELECT MAX(rowid) as maxid FROM " . MAIN_DB_PREFIX . $this->table_element;
+        $res = $this->db->query($sql);
+        $obj = $this->db->fetch_object($res);
+        $nextId = ($obj->maxid ?? 0) + 1;
+        return 'BEN' . date('Y') . '-' . sprintf('%04d', $nextId);
     }
 }
+?>

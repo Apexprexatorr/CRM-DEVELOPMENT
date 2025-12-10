@@ -1,124 +1,140 @@
 <?php
 require_once DOL_DOCUMENT_ROOT . '/core/class/commonobject.class.php';
 
-class Vendor extends CommonObject
+class VendorFB extends CommonObject
 {
-    public $element = 'vendor';
+    public $element       = 'foodbank_vendor';
     public $table_element = 'foodbank_vendors';
-    
+    public $picto         = 'company';
+
     public $id;
     public $ref;
     public $name;
+    public $category;       // Added
     public $contact_person;
+    public $contact_email;
+    public $contact_phone;
     public $phone;
     public $email;
     public $address;
-    public $note;
+    public $description;
+    public $status;         // Added
+    public $entity;
 
     public function __construct($db)
     {
         $this->db = $db;
+        $this->entity = isset($GLOBALS['conf']->entity) ? (int) $GLOBALS['conf']->entity : 1;
+        $this->status = 'Active'; // Default
     }
 
-    public function create($user)
+    public function create($user = null, $notrigger = false)
     {
-        // Auto-generate ref if not provided
         if (empty($this->ref)) {
             $this->ref = $this->getNextRef();
         }
 
-        $sql = "INSERT INTO " . MAIN_DB_PREFIX . "foodbank_vendors (";
-        $sql .= "ref, name, contact_person, phone, email, address, note";
+        $this->db->begin();
+
+        $sql = "INSERT INTO " . MAIN_DB_PREFIX . $this->table_element . " (";
+        $sql .= "ref, name, category, contact_person, contact_email, contact_phone, ";
+        $sql .= "phone, email, address, description, status, entity, date_creation";
         $sql .= ") VALUES (";
         $sql .= "'" . $this->db->escape($this->ref) . "',";
         $sql .= "'" . $this->db->escape($this->name) . "',";
+        $sql .= "'" . $this->db->escape($this->category) . "',";
         $sql .= "'" . $this->db->escape($this->contact_person) . "',";
+        $sql .= "'" . $this->db->escape($this->contact_email) . "',";
+        $sql .= "'" . $this->db->escape($this->contact_phone) . "',";
         $sql .= "'" . $this->db->escape($this->phone) . "',";
         $sql .= "'" . $this->db->escape($this->email) . "',";
         $sql .= "'" . $this->db->escape($this->address) . "',";
-        $sql .= "'" . $this->db->escape($this->note) . "'";
+        $sql .= "'" . $this->db->escape($this->description) . "',";
+        $sql .= "'" . $this->db->escape($this->status) . "',";
+        $sql .= (int)$this->entity . ",";
+        $sql .= "NOW()";
         $sql .= ")";
 
-        $resql = $this->db->query($sql);
-        if ($resql) {
-            $this->id = $this->db->last_insert_id(MAIN_DB_PREFIX . "foodbank_vendors");
+        if ($this->db->query($sql)) {
+            $this->id = $this->db->last_insert_id(MAIN_DB_PREFIX . $this->table_element);
+            $this->db->commit();
             return $this->id;
         } else {
             $this->error = $this->db->lasterror();
+            $this->db->rollback();
             return -1;
         }
     }
 
     public function fetch($id)
     {
-        $sql = "SELECT * FROM " . MAIN_DB_PREFIX . "foodbank_vendors WHERE rowid = " . (int) $id;
-        $resql = $this->db->query($sql);
-        
-        if ($resql) {
-            $obj = $this->db->fetch_object($resql);
-            if ($obj) {
-                $this->id = $obj->rowid;
-                $this->ref = $obj->ref;
-                $this->name = $obj->name;
-                $this->contact_person = $obj->contact_person;
-                $this->phone = $obj->phone;
-                $this->email = $obj->email;
-                $this->address = $obj->address;
-                $this->note = $obj->note;
-                return 1;
-            }
+        $sql = "SELECT * FROM " . MAIN_DB_PREFIX . $this->table_element . " WHERE rowid=" . (int)$id;
+        $res = $this->db->query($sql);
+        if ($res && ($obj = $this->db->fetch_object($res))) {
+            $this->id = $obj->rowid;
+            $this->ref = $obj->ref;
+            $this->name = $obj->name;
+            $this->category = $obj->category;
+            $this->contact_person = $obj->contact_person;
+            $this->contact_email = $obj->contact_email;
+            $this->contact_phone = $obj->contact_phone;
+            $this->phone = $obj->phone;
+            $this->email = $obj->email;
+            $this->address = $obj->address;
+            $this->description = $obj->description;
+            $this->status = $obj->status;
+            return 1;
         }
-        return -1;
+        return 0;
     }
 
-    public function update($user)
+    public function update($user = null, $notrigger = false)
     {
-        $sql = "UPDATE " . MAIN_DB_PREFIX . "foodbank_vendors SET ";
-        $sql .= "ref = '" . $this->db->escape($this->ref) . "',";
+        $this->db->begin();
+        
+        $sql = "UPDATE " . MAIN_DB_PREFIX . $this->table_element . " SET ";
         $sql .= "name = '" . $this->db->escape($this->name) . "',";
+        $sql .= "category = '" . $this->db->escape($this->category) . "',";
         $sql .= "contact_person = '" . $this->db->escape($this->contact_person) . "',";
+        $sql .= "contact_email = '" . $this->db->escape($this->contact_email) . "',";
+        $sql .= "contact_phone = '" . $this->db->escape($this->contact_phone) . "',";
         $sql .= "phone = '" . $this->db->escape($this->phone) . "',";
         $sql .= "email = '" . $this->db->escape($this->email) . "',";
         $sql .= "address = '" . $this->db->escape($this->address) . "',";
-        $sql .= "note = '" . $this->db->escape($this->note) . "'";
-        $sql .= " WHERE rowid = " . (int) $this->id;
+        $sql .= "description = '" . $this->db->escape($this->description) . "',";
+        $sql .= "status = '" . $this->db->escape($this->status) . "'";
+        $sql .= " WHERE rowid = " . (int)$this->id;
 
         if ($this->db->query($sql)) {
+            $this->db->commit();
+            return 1;
+        } else {
+            $this->error = $this->db->lasterror();
+            $this->db->rollback();
+            return -1;
+        }
+    }
+
+    public function delete($user = null, $notrigger = false)
+    {
+        $this->db->begin();
+        $sql = "DELETE FROM " . MAIN_DB_PREFIX . $this->table_element . " WHERE rowid=" . (int)$this->id;
+        if ($this->db->query($sql)) {
+            $this->db->commit();
             return 1;
         }
+        $this->error = $this->db->lasterror();
+        $this->db->rollback();
         return -1;
     }
 
-public function delete($user = null, $notrigger = false)
-{
-    if (empty($this->id)) return -1;
-
-    $this->db->begin();
-    $sql = "DELETE FROM ".MAIN_DB_PREFIX.$this->table_element." WHERE rowid = ".(int)$this->id;
-
-    if ($this->db->query($sql)) {
-        $this->db->commit();
-        return 1;
-    }
-
-    $this->error = $this->db->lasterror();
-    $this->db->rollback();
-    return -1;
-}
-
-    /**
-     * Auto-generate next vendor reference
-     * Format: VEN2025-0001
-     */
     public function getNextRef()
     {
-        $sql = "SELECT MAX(rowid) as maxid FROM ".MAIN_DB_PREFIX."foodbank_vendors";
-        $resql = $this->db->query($sql);
-        if ($resql) {
-            $obj = $this->db->fetch_object($resql);
-            $next = sprintf("VEN%s-%04d", date("Y"), ($obj->maxid ?? 0) + 1);
-            return $next;
-        }
-        return "VEN".date("Y")."-".sprintf("%04d", rand(1, 9999));
+        $sql = "SELECT MAX(rowid) as maxid FROM " . MAIN_DB_PREFIX . $this->table_element;
+        $res = $this->db->query($sql);
+        $obj = $this->db->fetch_object($res);
+        $nextId = ($obj->maxid ?? 0) + 1;
+        return 'VEN' . date('Y') . '-' . sprintf('%04d', $nextId);
     }
 }
+?>

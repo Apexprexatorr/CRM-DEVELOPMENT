@@ -4,453 +4,203 @@ require_once DOL_DOCUMENT_ROOT.'/custom/foodbankcrm/class/permissions.class.php'
 
 $langs->load("admin");
 
-// ============================================
-// SECURITY CHECK - Admin Only
-// ============================================
+// SECURITY CHECK
 if (!FoodbankPermissions::isAdmin($user)) {
     accessforbidden('You need administrator rights to access this page.');
 }
 
-llxHeader('', 'Foodbank CRM - Admin Dashboard');
+llxHeader('', 'Admin Dashboard');
 
 // ============================================
-// CSS STYLES
+// 1. CSS CLEANER (Hide Top Bar & Specific Menu Items)
 // ============================================
 print '<style>
-/* Modern Dashboard Styles */
-.fb-dashboard { max-width: 1400px; margin: 0 auto; }
-.fb-row { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 20px; }
-.fb-card { 
-    background: #fff; 
-    border-radius: 8px; 
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    padding: 20px; 
-    flex: 1; 
-    min-width: 280px;
-}
-.fb-card-header { 
-    font-size: 14px; 
-    color: #666; 
-    margin-bottom: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.fb-number { 
-    font-size: 36px; 
-    font-weight: 700; 
-    margin: 8px 0;
-}
-.fb-sub { 
-    color: #888; 
-    font-size: 13px; 
-}
-.kpi-grid { 
-    display: grid; 
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
-    gap: 20px; 
-    margin-bottom: 30px; 
-}
-.kpi-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 24px;
-    border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-.kpi-card.blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-.kpi-card.green { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
-.kpi-card.orange { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
-.kpi-card.purple { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-.kpi-card.red { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-.kpi-card.teal { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    /* --- HIDE TOP BAR (Global) --- */
+    #id-top { display: none !important; }
+    
+    /* Adjust Layout since Top Bar is gone */
+    .side-nav { top: 0 !important; height: 100vh !important; }
+    #id-right { padding-top: 30px !important; }
+    
+    /* --- SIDEBAR: HIDE VENDOR TASKS ONLY --- */
+    .side-nav a[href*="create_donation.php"] {
+        display: none !important;
+    }
 
-.kpi-title { 
-    font-size: 13px; 
-    opacity: 0.9; 
-    margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.kpi-number { 
-    font-size: 40px; 
-    font-weight: 700; 
-    margin: 6px 0;
-}
-.kpi-link { 
-    color: white; 
-    text-decoration: none; 
-    font-size: 12px;
-    opacity: 0.9;
-    margin-top: 8px;
-    display: inline-block;
-}
-.kpi-link:hover { opacity: 1; text-decoration: underline; }
+    /* --- HIDE STANDARD DOLIBARR MODULES --- */
+    #mainmenutd_commercial, #mainmenutd_billing, #mainmenutd_compta, 
+    #mainmenutd_projet, #mainmenutd_mrp, #mainmenutd_hrm, 
+    #mainmenutd_ticket, #mainmenutd_agenda, #mainmenutd_documents, #mainmenutd_bank,
+    #mainmenutd_products, #mainmenutd_services
+    {
+        display: none !important;
+    }
 
-.small-table { 
-    width: 100%; 
-    border-collapse: collapse; 
-}
-.small-table th, .small-table td { 
-    padding: 10px 8px; 
-    border-bottom: 1px solid #eee; 
-    text-align: left; 
-    font-size: 13px; 
-}
-.small-table th { 
-    background: #f9f9f9; 
-    font-weight: 600;
-    color: #333;
-}
-.small-table tr:hover { 
-    background: #f5f5f5; 
-}
-.badge { 
-    padding: 4px 10px; 
-    border-radius: 12px; 
-    color: #fff; 
-    font-size: 11px; 
-    font-weight: 600;
-    display: inline-block; 
-}
-.badge.green { background: #16a34a; }
-.badge.orange { background: #f97316; }
-.badge.blue { background: #2563eb; }
-.badge.red { background: #ef4444; }
-.badge.gray { background: #6b7280; }
+    /* --- DASHBOARD STYLES --- */
+    .fb-dashboard { max-width: 1600px; margin: 0 auto; padding: 0 20px; }
+    
+    .admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+    
+    /* KPI Grid */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 40px; }
+    .kpi-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white; padding: 24px; border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: transform 0.2s; position: relative; overflow: hidden;
+    }
+    .kpi-card:hover { transform: translateY(-3px); }
+    .kpi-card.purple { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .kpi-card.red { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+    .kpi-card.blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    .kpi-card.green { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+    .kpi-card.orange { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+    .kpi-card.teal { background: linear-gradient(135deg, #0ba360 0%, #3cba92 100%); }
 
-.alert-box {
-    padding: 12px 16px;
-    background: #fff3cd;
-    border-left: 4px solid #ffc107;
-    border-radius: 4px;
-    margin-bottom: 10px;
-    font-size: 13px;
-}
-.alert-box.danger {
-    background: #f8d7da;
-    border-color: #dc3545;
-    color: #721c24;
-}
-.alert-box.success {
-    background: #d4edda;
-    border-color: #28a745;
-    color: #155724;
-}
+    .kpi-title { font-size: 13px; opacity: 0.9; margin-bottom: 5px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+    .kpi-number { font-size: 36px; font-weight: 700; margin: 5px 0; }
+    .kpi-link { color: white; text-decoration: none; font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; display: inline-block; margin-top: 10px; }
+    .kpi-link:hover { background: rgba(255,255,255,0.3); }
+
+    .section-title { font-size: 18px; font-weight: bold; color: #333; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .fb-card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 0; margin-bottom: 25px; border: 1px solid #eee; overflow: hidden; }
+    .fb-card-header { padding: 15px 20px; border-bottom: 1px solid #eee; font-weight: bold; color: #555; background: #fcfcfc; }
+
+    .small-table { width: 100%; border-collapse: collapse; }
+    .small-table th { text-align: left; padding: 15px 20px; background: #f8f9fa; color: #666; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #eee; }
+    .small-table td { padding: 15px 20px; border-bottom: 1px solid #f5f5f5; font-size: 14px; color: #444; }
+    .small-table tr:hover { background: #fafafa; }
 </style>';
 
-// ============================================
-// FETCH DATA
-// ============================================
 $prefix = MAIN_DB_PREFIX;
 
-// Quick counts
-$sql = "SELECT COUNT(*) AS c FROM ".$prefix."foodbank_beneficiaries";
-$res = $db->query($sql);
-$beneficiaries = $res ? $db->fetch_object($res)->c : 0;
+// ============================================
+// 2. DATA FETCHING
+// ============================================
 
-$sql = "SELECT COUNT(*) AS c FROM ".$prefix."foodbank_vendors";
-$res = $db->query($sql);
-$vendors = $res ? $db->fetch_object($res)->c : 0;
+$beneficiaries = $db->fetch_object($db->query("SELECT COUNT(*) AS c FROM ".$prefix."foodbank_beneficiaries"))->c;
+$vendors = $db->fetch_object($db->query("SELECT COUNT(*) AS c FROM ".$prefix."foodbank_vendors"))->c;
+$donations = $db->fetch_object($db->query("SELECT COUNT(*) AS c FROM ".$prefix."foodbank_donations"))->c;
+$distributions = $db->fetch_object($db->query("SELECT COUNT(*) AS c FROM ".$prefix."foodbank_distributions"))->c;
+$packages = $db->fetch_object($db->query("SELECT COUNT(*) AS c FROM ".$prefix."foodbank_packages"))->c;
+$warehouses = $db->fetch_object($db->query("SELECT COUNT(*) AS c FROM ".$prefix."foodbank_warehouses"))->c;
 
-$sql = "SELECT COUNT(*) AS c FROM ".$prefix."foodbank_donations";
-$res = $db->query($sql);
-$donations = $res ? $db->fetch_object($res)->c : 0;
-
-$sql = "SELECT COUNT(*) AS c FROM ".$prefix."foodbank_distributions";
-$res = $db->query($sql);
-$distributions = $res ? $db->fetch_object($res)->c : 0;
-
-$sql = "SELECT COUNT(*) AS c FROM ".$prefix."foodbank_packages";
-$res = $db->query($sql);
-$packages = $res ? $db->fetch_object($res)->c : 0;
-
-$sql = "SELECT COUNT(*) AS c FROM ".$prefix."foodbank_warehouses";
-$res = $db->query($sql);
-$warehouses = $res ? $db->fetch_object($res)->c : 0;
-
-// Stock summary by unit
-$sql = "SELECT unit, 
-        SUM(quantity) as total_quantity,
-        SUM(quantity_allocated) as total_allocated,
-        SUM(quantity - quantity_allocated) as available
-        FROM ".$prefix."foodbank_donations
-        WHERE status = 'Received'
-        GROUP BY unit
-        ORDER BY available DESC";
-$res = $db->query($sql);
-$stock_by_unit = array();
-while ($obj = $db->fetch_object($res)) {
-    $stock_by_unit[] = $obj;
-}
-
-// Low stock alerts (available < 10)
-$sql = "SELECT ref, label, unit, (quantity - quantity_allocated) as available
-        FROM ".$prefix."foodbank_donations
-        WHERE status = 'Received' 
-        AND (quantity - quantity_allocated) > 0 
-        AND (quantity - quantity_allocated) < 10
-        ORDER BY available ASC
-        LIMIT 10";
-$res = $db->query($sql);
-$low_stock = array();
-while ($obj = $db->fetch_object($res)) {
-    $low_stock[] = $obj;
-}
-
-// Recent distributions
-$sql = "SELECT d.rowid, d.ref, d.date_distribution, d.status,
-        CONCAT(b.firstname, ' ', b.lastname) as beneficiary_name,
-        (SELECT COUNT(*) FROM ".$prefix."foodbank_distribution_lines WHERE fk_distribution = d.rowid) as item_count
-        FROM ".$prefix."foodbank_distributions d
-        LEFT JOIN ".$prefix."foodbank_beneficiaries b ON d.fk_beneficiary = b.rowid
-        ORDER BY d.date_distribution DESC
-        LIMIT 8";
-$res = $db->query($sql);
-$recent_distributions = array();
-while ($obj = $db->fetch_object($res)) {
-    $recent_distributions[] = $obj;
-}
-
-// Recent donations
-$sql = "SELECT d.rowid, d.ref, d.label, d.quantity, d.unit, d.date_donation, d.status,
-        v.name as vendor_name
-        FROM ".$prefix."foodbank_donations d
-        LEFT JOIN ".$prefix."foodbank_vendors v ON d.fk_vendor = v.rowid
-        ORDER BY d.date_donation DESC
-        LIMIT 8";
-$res = $db->query($sql);
-$recent_donations = array();
-while ($obj = $db->fetch_object($res)) {
-    $recent_donations[] = $obj;
-}
-
-// Top vendors by donation count
-$sql = "SELECT v.rowid, v.name, COUNT(d.rowid) as donation_count
-        FROM ".$prefix."foodbank_vendors v
-        LEFT JOIN ".$prefix."foodbank_donations d ON v.rowid = d.fk_vendor
-        GROUP BY v.rowid
-        ORDER BY donation_count DESC
-        LIMIT 5";
-$res = $db->query($sql);
-$top_vendors = array();
-while ($obj = $db->fetch_object($res)) {
-    $top_vendors[] = $obj;
-}
+// Pending Donations
+$sql_pending = "SELECT d.rowid, d.ref, d.product_name, d.quantity, d.unit, v.name as vendor_name, d.date_donation
+                FROM ".$prefix."foodbank_donations d
+                LEFT JOIN ".$prefix."foodbank_vendors v ON d.fk_vendor = v.rowid
+                WHERE d.status = 'Pending'
+                ORDER BY d.date_donation DESC LIMIT 5";
+$res_pending = $db->query($sql_pending);
 
 // ============================================
-// RENDER DASHBOARD
+// 3. DASHBOARD CONTENT
 // ============================================
 print '<div class="fb-dashboard">';
 
-print '<h1 style="margin-bottom: 24px;">🎯 Foodbank CRM Dashboard</h1>';
+// HEADER
+print '<div class="admin-header">';
+print '<div>';
+print '<h1 style="margin: 0; font-size: 24px;">👋 Admin Overview</h1>';
+print '<p style="color: #888; margin: 5px 0 0 0;">Foodbank CRM Command Center</p>';
+print '</div>';
+print '<div style="display: flex; gap: 10px;">';
+print '<a href="'.DOL_URL_ROOT.'/admin/index.php?mainmenu=home&leftmenu=setup" class="button" style="background: #f8f9fa; color: #333; border: 1px solid #ddd;">⚙️ Settings</a>';
 
-// KPI Cards
+// --- FIXED LOGOUT LINK ---
+print '<a href="'.DOL_URL_ROOT.'/user/logout.php" class="button" style="background: #dc3545; color: white;">🛑 Logout</a>';
+// ------------------------
+
+print '</div>';
+print '</div>';
+
+// KPI CARDS
 print '<div class="kpi-grid">';
 
 print '<div class="kpi-card purple">';
 print '<div class="kpi-title">Beneficiaries</div>';
 print '<div class="kpi-number">'.$beneficiaries.'</div>';
-print '<a href="/custom/foodbankcrm/core/pages/beneficiaries.php" class="kpi-link">View All →</a>';
+print '<a href="beneficiaries.php" class="kpi-link">Manage List →</a>';
 print '</div>';
 
 print '<div class="kpi-card red">';
 print '<div class="kpi-title">Vendors</div>';
 print '<div class="kpi-number">'.$vendors.'</div>';
-print '<a href="/custom/foodbankcrm/core/pages/vendors.php" class="kpi-link">View All →</a>';
+print '<a href="vendors.php" class="kpi-link">View Directory →</a>';
 print '</div>';
 
 print '<div class="kpi-card blue">';
-print '<div class="kpi-title">Donations</div>';
+print '<div class="kpi-title">Total Donations</div>';
 print '<div class="kpi-number">'.$donations.'</div>';
-print '<a href="/custom/foodbankcrm/core/pages/donations.php" class="kpi-link">View All →</a>';
+print '<a href="donations.php" class="kpi-link">History →</a>';
 print '</div>';
 
 print '<div class="kpi-card green">';
 print '<div class="kpi-title">Distributions</div>';
 print '<div class="kpi-number">'.$distributions.'</div>';
-print '<a href="/custom/foodbankcrm/core/pages/distributions.php" class="kpi-link">View All →</a>';
+print '<a href="distributions.php" class="kpi-link">Outbound →</a>';
 print '</div>';
 
 print '<div class="kpi-card orange">';
 print '<div class="kpi-title">Packages</div>';
 print '<div class="kpi-number">'.$packages.'</div>';
-print '<a href="/custom/foodbankcrm/core/pages/packages.php" class="kpi-link">View All →</a>';
+print '<a href="packages.php" class="kpi-link">Inventory →</a>';
 print '</div>';
 
 print '<div class="kpi-card teal">';
 print '<div class="kpi-title">Warehouses</div>';
 print '<div class="kpi-number">'.$warehouses.'</div>';
-print '<a href="/custom/foodbankcrm/core/pages/warehouses.php" class="kpi-link">View All →</a>';
+print '<a href="warehouses.php" class="kpi-link">Stock Levels →</a>';
 print '</div>';
 
-print '</div>';
+print '</div>'; // End KPI Grid
 
-// Two Column Layout
-print '<div class="fb-row">';
+// SPLIT ROW
+print '<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">';
 
-// LEFT COLUMN - Stock Summary
-print '<div class="fb-card" style="flex: 1.2;">';
-print '<div class="fb-card-header">📦 Stock Summary by Unit</div>';
-
-if (count($stock_by_unit) > 0) {
-    print '<table class="small-table">';
-    print '<thead><tr><th>Unit</th><th>Total</th><th>Allocated</th><th>Available</th><th>Usage %</th></tr></thead>';
-    print '<tbody>';
-    
-    foreach ($stock_by_unit as $stock) {
-        $usage_pct = $stock->total_quantity > 0 ? round(($stock->total_allocated / $stock->total_quantity) * 100, 1) : 0;
-        $color = $stock->available > 0 ? '#16a34a' : '#ef4444';
-        
-        print '<tr>';
-        print '<td><strong>'.dol_escape_htmltag($stock->unit).'</strong></td>';
-        print '<td>'.number_format($stock->total_quantity, 2).'</td>';
-        print '<td><span style="color: #f97316;">'.number_format($stock->total_allocated, 2).'</span></td>';
-        print '<td><strong style="color:'.$color.';">'.number_format($stock->available, 2).'</strong></td>';
-        print '<td>'.$usage_pct.'%</td>';
-        print '</tr>';
-    }
-    
-    print '</tbody></table>';
-} else {
-    print '<p style="color: #999;">No stock data available.</p>';
-}
-
-print '</div>';
-
-// RIGHT COLUMN - Low Stock Alerts
-print '<div class="fb-card" style="flex: 0.8;">';
-print '<div class="fb-card-header">⚠️ Low Stock Alerts</div>';
-
-if (count($low_stock) > 0) {
-    foreach ($low_stock as $item) {
-        print '<div class="alert-box danger">';
-        print '<strong>'.dol_escape_htmltag($item->label).'</strong><br>';
-        print '<span style="font-size: 12px;">'.dol_escape_htmltag($item->ref).' - Only '.number_format($item->available, 2).' '.$item->unit.' remaining</span>';
-        print '</div>';
-    }
-} else {
-    print '<div class="alert-box success">✅ All stock levels are healthy!</div>';
-}
-
-print '</div>';
-
-print '</div>';
-
-// Three Column Layout
-print '<div class="fb-row">';
-
-// Recent Distributions
+// LEFT: Pending Approvals
+print '<div>';
+print '<div class="section-title">⚡ Pending Approvals <span style="font-size: 12px; background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 10px; font-weight: normal; margin-left: 10px;">Action Required</span></div>';
 print '<div class="fb-card">';
-print '<div class="fb-card-header">📦 Recent Distributions</div>';
-
-if (count($recent_distributions) > 0) {
+if ($db->num_rows($res_pending) > 0) {
     print '<table class="small-table">';
-    print '<thead><tr><th>Ref</th><th>Beneficiary</th><th>Items</th><th>Date</th><th>Status</th></tr></thead>';
+    print '<thead><tr><th>Ref</th><th>Vendor</th><th>Product</th><th>Qty</th><th>Submitted</th><th>Action</th></tr></thead>';
     print '<tbody>';
-    
-    foreach ($recent_distributions as $dist) {
-        $status_class = 'gray';
-        if ($dist->status == 'Delivered') $status_class = 'blue';
-        elseif ($dist->status == 'Completed') $status_class = 'green';
-        elseif ($dist->status == 'Prepared') $status_class = 'orange';
-        
+    while ($obj = $db->fetch_object($res_pending)) {
         print '<tr>';
-        print '<td><a href="/custom/foodbankcrm/core/pages/view_distribution.php?id='.$dist->rowid.'"><strong>'.$dist->ref.'</strong></a></td>';
-        print '<td>'.dol_escape_htmltag($dist->beneficiary_name).'</td>';
-        print '<td>'.$dist->item_count.'</td>';
-        print '<td>'.dol_print_date($db->jdate($dist->date_distribution), 'day').'</td>';
-        print '<td><span class="badge '.$status_class.'">'.$dist->status.'</span></td>';
+        print '<td><strong>'.$obj->ref.'</strong></td>';
+        print '<td>'.dol_trunc($obj->vendor_name, 20).'</td>';
+        print '<td>'.$obj->product_name.'</td>';
+        print '<td>'.number_format($obj->quantity).' '.$obj->unit.'</td>';
+        print '<td>'.dol_print_date($db->jdate($obj->date_donation), 'day').'</td>';
+        print '<td><a href="view_donation.php?id='.$obj->rowid.'" class="button small" style="background: #2e7d32; color: white; padding: 6px 15px; text-decoration: none; border-radius: 4px; font-size: 12px;">Review</a></td>';
         print '</tr>';
     }
-    
     print '</tbody></table>';
 } else {
-    print '<p style="color: #999;">No distributions yet.</p>';
+    print '<div style="text-align: center; padding: 40px; color: #999;">';
+    print '<div style="font-size: 40px; margin-bottom: 10px; opacity: 0.5;">✅</div>';
+    print 'All caught up! No pending donations to review.';
+    print '</div>';
 }
-
+print '</div>';
 print '</div>';
 
+// RIGHT: Admin Tools
+print '<div>';
+print '<div class="section-title">🛠️ Admin Tools</div>';
+print '<div class="fb-card" style="padding: 20px;">';
+print '<div style="display: flex; flex-direction: column; gap: 15px;">';
+print '<a href="create_package.php" class="butAction" style="text-align: center; padding: 15px;">🎁 Create New Package</a>';
+print '<a href="create_vendor.php" class="button" style="text-align: center; background: #f8f9fa; color: #333; border: 1px solid #ddd;">🏢 Register Vendor</a>';
+print '<a href="create_beneficiary.php" class="button" style="text-align: center; background: #f8f9fa; color: #333; border: 1px solid #ddd;">👤 Register Beneficiary</a>';
+print '<a href="warehouses.php" class="button" style="text-align: center; background: #f8f9fa; color: #333; border: 1px solid #ddd;">🏭 Manage Warehouses</a>';
+print '</div>';
+print '</div>';
 print '</div>';
 
-// Recent Donations
-print '<div class="fb-row">';
+print '</div>'; // End Split Row
 
-print '<div class="fb-card">';
-print '<div class="fb-card-header">🎁 Recent Donations</div>';
-
-if (count($recent_donations) > 0) {
-    print '<table class="small-table">';
-    print '<thead><tr><th>Ref</th><th>Product</th><th>Quantity</th><th>Vendor</th><th>Date</th><th>Status</th></tr></thead>';
-    print '<tbody>';
-    
-    foreach ($recent_donations as $don) {
-        $status_class = 'gray';
-        if ($don->status == 'Received') $status_class = 'green';
-        elseif ($don->status == 'Pending') $status_class = 'orange';
-        elseif ($don->status == 'Allocated') $status_class = 'blue';
-        print '<tr>';
-        print '<td><a href="/custom/foodbankcrm/core/pages/view_donation.php?id='.$don->rowid.'"><strong>'.$don->ref.'</strong></a></td>';
-        print '<td>'.dol_escape_htmltag($don->label).'</td>';
-        print '<td>'.number_format($don->quantity, 2).' '.$don->unit.'</td>';
-        print '<td>'.dol_escape_htmltag($don->vendor_name).'</td>';
-        print '<td>'.dol_print_date($db->jdate($don->date_donation), 'day').'</td>';
-        print '<td><span class="badge '.$status_class.'">'.$don->status.'</span></td>';
-        print '</tr>';
-    }
-    
-    print '</tbody></table>';
-} else {
-    print '<p style="color: #999;">No donations yet.</p>';
-}
-
-print '</div>';
-
-print '</div>';
-
-// Top Vendors
-print '<div class="fb-row">';
-
-print '<div class="fb-card">';
-print '<div class="fb-card-header">🏆 Top Donors</div>';
-
-if (count($top_vendors) > 0) {
-    print '<table class="small-table">';
-    print '<thead><tr><th>Vendor</th><th>Total Donations</th><th>Actions</th></tr></thead>';
-    print '<tbody>';
-    
-    foreach ($top_vendors as $vendor) {
-        print '<tr>';
-        print '<td><strong>'.dol_escape_htmltag($vendor->name).'</strong></td>';
-        print '<td>'.$vendor->donation_count.' donations</td>';
-        print '<td><a href="/custom/foodbankcrm/core/pages/edit_vendor.php?id='.$vendor->rowid.'">View</a></td>';
-        print '</tr>';
-    }
-    
-    print '</tbody></table>';
-} else {
-    print '<p style="color: #999;">No vendors yet.</p>';
-}
-
-print '</div>';
-
-// Quick Actions
-print '<div class="fb-card" style="max-width: 300px;">';
-print '<div class="fb-card-header">⚡ Quick Actions</div>';
-
-print '<div style="display: flex; flex-direction: column; gap: 10px;">';
-print '<a href="/custom/foodbankcrm/core/pages/create_distribution.php" class="button" style="text-align: center;">📦 New Distribution</a>';
-print '<a href="/custom/foodbankcrm/core/pages/create_donation.php" class="button" style="text-align: center;">🎁 New Donation</a>';
-print '<a href="/custom/foodbankcrm/core/pages/create_beneficiary.php" class="button" style="text-align: center;">👤 New Beneficiary</a>';
-print '<a href="/custom/foodbankcrm/core/pages/create_vendor.php" class="button" style="text-align: center;">🏢 New Vendor</a>';
-print '<a href="/custom/foodbankcrm/core/pages/create_package.php" class="button" style="text-align: center;">🎁 New Package</a>';
-print '</div>';
-
-print '</div>';
-
-print '</div>';
-
-print '</div>'; // End fb-dashboard
+print '</div>'; // End Dashboard
 
 llxFooter();
 ?>

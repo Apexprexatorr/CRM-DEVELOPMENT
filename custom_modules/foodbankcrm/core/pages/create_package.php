@@ -4,226 +4,146 @@ require_once dirname(__DIR__, 3) . '/foodbankcrm/class/package.class.php';
 require_once dirname(__DIR__, 3) . '/foodbankcrm/class/packageitem.class.php';
 
 $langs->load("admin");
-llxHeader();
+llxHeader('', 'Create Package');
+
+// --- CSS ---
+print '<style>
+    div#id-top, #id-top { display: none !important; }
+    .side-nav { top: 0 !important; height: 100vh !important; }
+    #id-right { padding-top: 30px !important; }
+    
+    .fb-container { max-width: 1000px; margin: 0 auto; padding: 0 20px; }
+    .fb-card { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 40px; border: 1px solid #eee; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; font-weight: 600; font-size: 13px; color: #444; margin-bottom: 5px; }
+    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+    
+    /* Item Table */
+    .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .item-table th { background: #f8f9fa; text-align: left; padding: 10px; font-size: 12px; color: #666; border-bottom: 2px solid #eee; }
+    .item-table td { padding: 10px; border-bottom: 1px solid #eee; }
+    .item-input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+</style>';
 
 $notice = '';
+$hide_form = false;
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (!isset($_POST['token']) || $_POST['token'] != $_SESSION['newtoken']) {
-        $notice = '<div class="error">Security check failed: invalid CSRF token.</div>';
+        $notice = '<div class="error">Security check failed.</div>';
     } else {
-        // Create package
-        $package = new Package($db);
-        $package->ref = $_POST['ref']; // Will auto-generate if empty
-        $package->name = $_POST['name'];
-        $package->description = $_POST['description'];
-        $package->status = $_POST['status'];
-
-        $package_id = $package->create($user);
-
-        if ($package_id > 0) {
-            // Add package items
-            $items_added = 0;
-            $items_failed = 0;
-
-            if (!empty($_POST['product_name']) && is_array($_POST['product_name'])) {
-                foreach ($_POST['product_name'] as $index => $product_name) {
-                    if (empty(trim($product_name))) continue;
-
+        $p = new Package($db);
+        $p->ref = $_POST['ref'];
+        $p->name = $_POST['name'];
+        $p->description = $_POST['description'];
+        $p->status = $_POST['status'];
+        
+        $pid = $p->create($user);
+        
+        if ($pid > 0) {
+            // Save Items
+            $count = 0;
+            if (!empty($_POST['product_name'])) {
+                foreach ($_POST['product_name'] as $k => $name) {
+                    if (empty(trim($name))) continue;
                     $item = new PackageItem($db);
-                    $item->fk_package = $package_id;
-                    $item->product_name = trim($product_name);
-                    $item->quantity = !empty($_POST['product_quantity'][$index]) ? $_POST['product_quantity'][$index] : 0;
-                    $item->unit = !empty($_POST['product_unit'][$index]) ? $_POST['product_unit'][$index] : 'kg';
-                    $item->unit_price = !empty($_POST['product_price'][$index]) ? $_POST['product_price'][$index] : 0;
-                    $item->fk_vendor_preferred = !empty($_POST['product_vendor'][$index]) ? $_POST['product_vendor'][$index] : null;
-                    $item->note = !empty($_POST['product_note'][$index]) ? $_POST['product_note'][$index] : '';
-
-                    if ($item->create($user) > 0) {
-                        $items_added++;
-                    } else {
-                        $items_failed++;
-                    }
+                    $item->fk_package = $pid;
+                    $item->product_name = $name;
+                    $item->quantity = $_POST['quantity'][$k];
+                    $item->unit = $_POST['unit'][$k];
+                    $item->unit_price = $_POST['unit_price'][$k];
+                    $item->create($user);
+                    $count++;
                 }
             }
-
-            $notice = '<div class="ok">Package created successfully! Ref: '.$package->ref.' (ID: '.$package_id.')';
-            if ($items_added > 0) {
-                $notice .= '<br>✅ '.$items_added.' item(s) added to package.';
-            }
-            if ($items_failed > 0) {
-                $notice .= '<br>⚠ '.$items_failed.' item(s) failed to add.';
-            }
-            $notice .= '</div>';
+            
+            $notice = '<div class="ok" style="padding: 20px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; color: #155724; margin-bottom: 20px; text-align: center;">
+                        <div style="font-size: 40px; margin-bottom: 10px;">📦</div>
+                        <strong>Package Created Successfully!</strong><br>
+                        Added '.$count.' items.<br><br>
+                        <a href="packages.php" class="button" style="background:#28a745; color:white; border:none; padding:10px 20px;">View Packages</a>
+                       </div>';
+            $hide_form = true;
         } else {
-            $notice = '<div class="error">Error creating package: '.dol_escape_htmltag($package->error).'</div>';
+            $notice = '<div class="error">Error: '.$p->error.'</div>';
         }
     }
 }
 
-// Get all vendors for dropdown
-$vendors_list = array();
-$sql = "SELECT rowid, name FROM ".MAIN_DB_PREFIX."foodbank_vendors WHERE 1 ORDER BY name ASC";
-$resql = $db->query($sql);
-if ($resql) {
-    while ($obj = $db->fetch_object($resql)) {
-        $vendors_list[$obj->rowid] = $obj->name;
-    }
+print '<div class="fb-container">';
+
+if (!$hide_form) {
+    print '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">';
+    print '<div><h1 style="margin: 0;">📦 New Package</h1><p style="color:#888; margin: 5px 0 0 0;">Create a food box template</p></div>';
+    print '<div><a href="packages.php" class="button" style="background:#eee; color:#333; margin-right: 10px;">Cancel</a>';
+    print '<a href="dashboard_admin.php" class="button" style="background:#333; color:#fff;">Dashboard</a></div>';
+    print '</div>';
 }
 
 print $notice;
-print '<div><a href="packages.php">← Back to Packages</a></div><br>';
-?>
 
-<h2>Create Package Template</h2>
-<p style="color: #666; font-size: 13px;">
-    A package is a predefined list of items that beneficiaries typically receive.
-    Create templates like "Family Package", "Single Person Package", etc.
-</p>
+if (!$hide_form) {
+    print '<div class="fb-card">';
+    print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
+    print '<input type="hidden" name="token" value="'.newToken().'">';
 
-<form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
-  <input type="hidden" name="token" value="<?php echo newToken(); ?>">
-
-  <table class="border centpercent">
-    <tr>
-      <td width="25%">Ref</td>
-      <td><input class="flat" type="text" name="ref" placeholder="Leave empty for auto-generation (PKG2025-0001)"></td>
-    </tr>
-    <tr>
-      <td><span class="fieldrequired">Package Name</span></td>
-      <td><input class="flat" type="text" name="name" placeholder="e.g., Family Package, Emergency Relief" required></td>
-    </tr>
-    <tr>
-      <td>Description</td>
-      <td><textarea class="flat" name="description" rows="3" placeholder="Brief description of this package..."></textarea></td>
-    </tr>
-    <tr>
-      <td>Status</td>
-      <td>
-        <select class="flat" name="status">
-          <option value="Active" selected>Active</option>
-          <option value="Inactive">Inactive</option>
-        </select>
-      </td>
-    </tr>
-  </table>
-
-  <br>
-  <h3>📦 Items in This Package</h3>
-  <p style="color: #666; font-size: 12px;">
-    Define what items should be included in this package. You can optionally specify a preferred vendor for each item.
-  </p>
-
-  <div id="items-container">
-    <table class="noborder centpercent">
-      <tr class="liste_titre">
-        <th width="25%">Product Name</th>
-        <th width="12%">Quantity</th>
-        <th width="10%">Unit</th>
-        <th width="12%"><span class="fieldrequired">Unit Price (₦)</span></th>
-        <th width="20%">Preferred Vendor</th>
-        <th width="8%">Action</th>
-      </tr>
-      <tr class="item-row">
-        <td><input class="flat" type="text" name="product_name[]" placeholder="e.g., Rice, Oil, Beans" style="width:95%;" required></td>
-        <td><input class="flat" type="number" name="product_quantity[]" step="0.01" placeholder="10" style="width:95%;" required></td>
-        <td>
-          <select class="flat" name="product_unit[]" style="width:95%;">
-            <option value="kg">kg</option>
-            <option value="liters">liters</option>
-            <option value="boxes">boxes</option>
-            <option value="bags">bags</option>
-            <option value="units">units</option>
-          </select>
-        </td>
-        <td><input class="flat" type="number" name="product_price[]" step="0.01" placeholder="500.00" style="width:95%;" required></td>
-        <td>
-          <select class="flat" name="product_vendor[]" style="width:95%;">
-            <option value="">-- No Preference --</option>
-            <?php foreach ($vendors_list as $vendor_id => $vendor_name): ?>
-            <option value="<?php echo $vendor_id; ?>"><?php echo dol_escape_htmltag($vendor_name); ?></option>
-            <?php endforeach; ?>
-          </select>
-        </td>
-        <td><button type="button" class="button small" onclick="removeItemRow(this)">Remove</button></td>
-      </tr>
-    </table>
-  </div>
-
-  <br>
-  <div style="margin-bottom: 20px;">
-    <button type="button" class="button" onclick="addItemRow()">+ Add Another Item</button>
-  </div>
-
-  <div style="background: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-    <strong>💡 Total Package Price:</strong> <span id="total-price" style="font-size: 18px; color: #1976d2;">₦0.00</span>
-  </div>
-
-  <br>
-  <div class="center">
-    <input class="button" type="submit" value="Create Package">
-    <a class="button" href="packages.php">Cancel</a>
-  </div>
-</form>
-
-<script>
-function calculateTotal() {
-    let total = 0;
-    const rows = document.querySelectorAll('.item-row');
+    print '<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">';
+    print '<div class="form-group"><label>Package Name</label><input type="text" name="name" required placeholder="e.g. Family Relief Box"></div>';
+    print '<div class="form-group"><label>Reference (Optional)</label><input type="text" name="ref" placeholder="Auto-generated"></div>';
+    print '</div>';
     
-    rows.forEach(function(row) {
-        const qty = parseFloat(row.querySelector('input[name="product_quantity[]"]').value) || 0;
-        const price = parseFloat(row.querySelector('input[name="product_price[]"]').value) || 0;
-        total += qty * price;
-    });
+    print '<div class="form-group"><label>Description</label><textarea name="description" rows="2" placeholder="Describe contents..."></textarea></div>';
+    print '<input type="hidden" name="status" value="Active">';
+
+    print '<h3 style="margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 10px;">📦 Package Items</h3>';
     
-    document.getElementById('total-price').textContent = '₦' + total.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+    print '<table class="item-table" id="itemTable">';
+    print '<thead><tr><th>Product Name</th><th width="15%">Qty</th><th width="15%">Unit</th><th width="15%">Est. Price (₦)</th><th width="5%"></th></tr></thead>';
+    print '<tbody id="itemBody">';
+    // Initial Row
+    print '<tr>
+            <td><input type="text" name="product_name[]" class="item-input" required placeholder="Item name"></td>
+            <td><input type="number" name="quantity[]" class="item-input" value="1"></td>
+            <td><select name="unit[]" class="item-input"><option>kg</option><option>units</option><option>liters</option><option>bags</option></select></td>
+            <td><input type="number" name="unit_price[]" class="item-input" value="0"></td>
+            <td><button type="button" class="button small" style="background:#dc3545; color:white;" onclick="removeRow(this)">X</button></td>
+           </tr>';
+    print '</tbody></table>';
+    
+    print '<div style="margin-top: 10px;">';
+    print '<button type="button" class="button small" style="background:#667eea; color:white;" onclick="addRow()">+ Add Another Item</button>';
+    print '</div>';
+
+    print '<div style="margin-top: 30px; text-align: center;">';
+    print '<button type="submit" class="butAction" style="padding: 12px 40px; font-size: 16px;">Create Package</button>';
+    print '</div>';
+
+    print '</form>';
+    print '</div>';
 }
 
-function addItemRow() {
-    var container = document.getElementById('items-container').querySelector('table');
-    var newRow = container.querySelector('.item-row').cloneNode(true);
+print '</div>'; // End Container
 
-    // Clear input values
-    var inputs = newRow.querySelectorAll('input, select');
-    inputs.forEach(function(input) {
-        if (input.type === 'text' || input.type === 'number') {
-            input.value = '';
-        } else if (input.tagName === 'SELECT') {
-            input.selectedIndex = 0;
-        }
-    });
-
-    container.appendChild(newRow);
-    
-    // Attach event listeners to new inputs
-    attachCalculationListeners(newRow);
+// JS for Dynamic Rows
+print '<script>
+function addRow() {
+    var table = document.getElementById("itemBody");
+    var row = table.rows[0].cloneNode(true);
+    var inputs = row.getElementsByTagName("input");
+    for(var i=0; i<inputs.length; i++) inputs[i].value = "";
+    inputs[1].value = "1"; // Default qty
+    inputs[3].value = "0"; // Default price
+    table.appendChild(row);
 }
-
-function removeItemRow(button) {
-    var container = document.getElementById('items-container').querySelector('table');
-    var rows = container.querySelectorAll('.item-row');
-
-    if (rows.length > 1) {
-        button.closest('.item-row').remove();
-        calculateTotal();
+function removeRow(btn) {
+    var row = btn.parentNode.parentNode;
+    if (document.getElementById("itemBody").rows.length > 1) {
+        row.parentNode.removeChild(row);
     } else {
-        alert('You must keep at least one item in the package.');
+        alert("You must have at least one item.");
     }
 }
+</script>';
 
-function attachCalculationListeners(row) {
-    const qtyInput = row.querySelector('input[name="product_quantity[]"]');
-    const priceInput = row.querySelector('input[name="product_price[]"]');
-    
-    if (qtyInput) qtyInput.addEventListener('input', calculateTotal);
-    if (priceInput) priceInput.addEventListener('input', calculateTotal);
-}
-
-// Initialize calculation listeners on page load
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.item-row').forEach(attachCalculationListeners);
-});
-</script>
-
-<?php
-llxFooter(); ?>
+llxFooter();
+?>
