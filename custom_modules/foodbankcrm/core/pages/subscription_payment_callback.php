@@ -1,7 +1,6 @@
-
 <?php
 /**
- * Subscription Payment Callback - Verify and Activate
+ * Subscription Payment Callback - ROBUST FIX
  */
 
 require_once dirname(__DIR__, 4) . '/main.inc.php';
@@ -11,7 +10,7 @@ global $user, $db, $conf;
 
 $langs->load("admin");
 
-// Get reference and tier
+// 1. Get Params
 $reference = GETPOST('reference', 'alpha');
 $tier_type = GETPOST('tier', 'alpha');
 
@@ -20,8 +19,10 @@ if (empty($reference) || empty($tier_type)) {
     exit;
 }
 
-// Verify payment with Paystack
-$paystack_secret_key = 'sk_test 24845eca974e163568aa6dd497590551e1ad2260';
+// 2. Verify with Paystack
+// 🔴 KEY FIX: We use trim() to remove any accidental spaces
+$raw_key = 'sk_test_24845eca974e163568aa6dd497590551e1ad2260';
+$paystack_secret_key = trim($raw_key); 
 
 $curl = curl_init();
 curl_setopt_array($curl, array(
@@ -37,44 +38,57 @@ $response = curl_exec($curl);
 $err = curl_error($curl);
 curl_close($curl);
 
-if ($err) {
+// --- ERROR PAGE ---
+function printErrorPage($msg) {
     llxHeader('', 'Payment Error');
-    echo '<style>
-    #id-left { display: none !important; }
-    #id-right { margin-left: 0 !important; width: 100% !important; }
+    print '<style>
+        #id-top, .side-nav, .side-nav-vert, #id-left, .login_block, .tmenudiv, .nav-bar, header { display: none !important; }
+        html, body { background-color: #f8f9fa !important; margin: 0; width: 100%; overflow-x: hidden; }
+        #id-right, .id-right { margin: 0 !important; width: 100vw !important; max-width: 100vw !important; padding: 0 !important; }
+        .error-card { 
+            background: white; padding: 40px; border-radius: 12px; text-align: center; 
+            max-width: 600px; margin: 50px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+        }
     </style>';
-    print '<div class="error">Payment verification failed. Please contact support.</div>';
+    print '<div class="error-card">';
+    print '<div style="font-size: 60px; margin-bottom: 20px;">⚠️</div>';
+    print '<h2 style="color: #dc3545; margin: 0 0 15px 0;">Verification Failed</h2>';
+    print '<p style="color: #666; margin-bottom: 25px;">'.$msg.'</p>';
+    print '<a href="renew_subscription.php" class="butAction">Try Again</a>';
+    print '</div>';
     llxFooter();
     exit;
 }
 
+if ($err) {
+    printErrorPage('Connection Error: ' . $err);
+}
+
 $result = json_decode($response);
 
-if ($result->data->status == 'success') {
-    // Payment successful - Activate subscription
+// 3. CHECK RESULT
+if ($result && isset($result->data) && $result->data->status == 'success') {
     
     // Get beneficiary
-    $sql_ben = "SELECT rowid FROM ".MAIN_DB_PREFIX."foodbank_beneficiaries WHERE fk_user = ".(int)$user->id;
+    $sql_ben = "SELECT rowid, ref FROM ".MAIN_DB_PREFIX."foodbank_beneficiaries WHERE fk_user = ".(int)$user->id;
     $res_ben = $db->query($sql_ben);
     $beneficiary = $db->fetch_object($res_ben);
     $subscriber_id = $beneficiary->rowid;
     
-    // Get tier details
+    // Get tier
     $sql_tier = "SELECT * FROM ".MAIN_DB_PREFIX."foodbank_subscription_tiers WHERE tier_type = '".$db->escape($tier_type)."'";
     $res_tier = $db->query($sql_tier);
     $tier = $db->fetch_object($res_tier);
     
-    // Calculate new end date
+    // Dates & Amount
     $start_date = date('Y-m-d');
     $end_date = date('Y-m-d', strtotime('+' . $tier->duration_days . ' days'));
-    
-    // Calculate amount
-    $amount = $result->data->amount / 100; // Convert from kobo
+    $amount = $result->data->amount / 100;
     
     $db->begin();
     
     try {
-        // Update subscription
+        // Update Beneficiary
         $sql_update = "UPDATE ".MAIN_DB_PREFIX."foodbank_beneficiaries SET
                        subscription_type = '".$db->escape($tier_type)."',
                        subscription_status = 'Active',
@@ -82,14 +96,12 @@ if ($result->data->status == 'success') {
                        subscription_end_date = '".$db->escape($end_date)."',
                        subscription_fee = ".(float)$tier->price.",
                        payment_method = 'Paystack',
-                       last_payment_date = '".$db->escape(date('Y-m-d'))."'
+                       last_payment_date = NOW()
                        WHERE rowid = ".(int)$subscriber_id;
         
-        if (!$db->query($sql_update)) {
-            throw new Exception('Failed to update subscription: '.$db->lasterror());
-        }
+        if (!$db->query($sql_update)) throw new Exception('Update Failed');
         
-        // Record payment
+        // Record Payment
         $sql_payment = "INSERT INTO ".MAIN_DB_PREFIX."foodbank_payments 
                         (fk_subscriber, payment_type, amount, payment_method, payment_status, 
                          payment_reference, payment_date, datec)
@@ -98,44 +110,27 @@ if ($result->data->status == 'success') {
                             'Subscription',
                             ".(float)$amount.",
                             'Paystack',
-                            'Paid',
+                            'Success',
                             '".$db->escape($reference)."',
                             NOW(),
                             NOW()
                         )";
         
-        if (!$db->query($sql_payment)) {
-            throw new Exception('Failed to record payment: '.$db->lasterror());
-        }
+        if (!$db->query($sql_payment)) throw new Exception('Payment Record Failed');
         
         $db->commit();
         
-        // Redirect to success page
-        header('Location: subscription_success.php?tier='.urlencode($tier_type).'&end_date='.urlencode($end_date));
+        // Success Redirect
+        header('Location: subscription_success.php?tier='.urlencode($tier->tier_name).'&end_date='.urlencode($end_date));
         exit;
         
     } catch (Exception $e) {
         $db->rollback();
-        llxHeader('', 'Error');
-        echo '<style>
-        #id-left { display: none !important; }
-        #id-right { margin-left: 0 !important; width: 100% !important; }
-        </style>';
-        print '<div class="error">Failed to activate subscription: '.dol_escape_htmltag($e->getMessage()).'</div>';
-        print '<a href="renew_subscription.php" class="butAction">Try Again</a>';
-        llxFooter();
-        exit;
+        printErrorPage('System Error: ' . $e->getMessage());
     }
     
 } else {
-    llxHeader('', 'Payment Failed');
-    echo '<style>
-    #id-left { display: none !important; }
-    #id-right { margin-left: 0 !important; width: 100% !important; }
-    </style>';
-    print '<div class="error">Payment verification failed. Please try again.</div>';
-    print '<a href="renew_subscription.php" class="butAction">Back to Subscription</a>';
-    llxFooter();
-    exit;
+    $msg = isset($result->message) ? $result->message : 'Unknown gateway error';
+    printErrorPage('Paystack Error: ' . $msg);
 }
 ?>

@@ -1,4 +1,7 @@
 <?php
+/**
+ * Vendor Reports - CONSISTENT LAYOUT (Matches Dashboard)
+ */
 define('NOTOKENRENEWAL', 1);
 define('NOCSRFCHECK', 1);
 
@@ -25,91 +28,77 @@ $vendor_id = $vendor->rowid;
 $year = GETPOST('year', 'int') ? GETPOST('year', 'int') : date('Y');
 $month = GETPOST('month', 'int') ? GETPOST('month', 'int') : 0; // 0 = All Year
 
-llxHeader('', 'My Impact Report');
+llxHeader('', 'Supply Performance');
 
-// 3. UPDATED CSS WITH PRINT RULES
+// 3. CSS (Matches dashboard_vendor.php exactly)
 echo '<style>
     /* SCREEN STYLES */
-    #id-left { display: none !important; }
-    #id-right { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
+    #id-top, .side-nav, .side-nav-vert, #id-left, .login_block, .tmenudiv, .nav-bar, header { display: none !important; }
+    
+    /* RESET LAYOUT */
+    html, body { background-color: #f8f9fa !important; margin: 0; width: 100%; overflow-x: hidden; }
+    #id-right, .id-right { margin: 0 !important; width: 100vw !important; max-width: 100vw !important; padding: 0 !important; }
     .fiche { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
-    body { background: #f8f9fa !important; }
-    .report-card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; break-inside: avoid; }
+    
+    /* MAIN CONTAINER (Consistent with Dashboard) */
+    .report-container { 
+        width: 95%; 
+        max-width: 1200px; /* MATCHES DASHBOARD */
+        margin: 0 auto;    /* CENTERS CONTENT */
+        padding: 40px 20px; 
+        font-family: "Segoe UI", sans-serif; 
+    }
+
+    .report-card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; break-inside: avoid; border: 1px solid #f0f0f0; }
     .bar-container { background-color: #f1f1f1; border-radius: 5px; height: 10px; width: 100%; margin-top: 5px; }
     .bar-fill { height: 10px; border-radius: 5px; transition: width 0.5s; }
+    
+    .btn-logout {
+        background: white; color: #dc3545; border: 1px solid #dc3545; 
+        padding: 8px 16px; border-radius: 30px; text-decoration: none; 
+        font-weight: bold; font-size: 13px; display: inline-flex; align-items: center; gap: 5px;
+    }
+
+    /* GRID ADJUSTMENTS */
+    .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .grid-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 30px; }
 
     /* PRINT SPECIFIC STYLES */
     @media print {
-        /* Hide Dolibarr Navigation and Buttons */
-        #id-top, .login_block, .side-nav, .tmenu, #tmenu_tooltip, .butAction, form {
-            display: none !important;
-        }
-
-        /* Reset Layout for Paper */
-        body, #id-right, #id-main, .fiche {
-            background: white !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100% !important;
-            box-shadow: none !important;
-        }
-
-        /* Container Adjustment */
-        .main-container {
-            padding: 0 !important;
-            margin: 0 !important;
-            max-width: 100% !important;
-        }
-
-        /* Force Colors to Print (Chrome/Edge/Safari) */
-        * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-
-        /* Remove Shadows for cleaner print */
-        .report-card {
-            box-shadow: none !important;
-            border: 1px solid #ddd !important;
-            page-break-inside: avoid;
-        }
-        
-        /* Adjust Font Sizes */
+        #id-top, .login_block, .side-nav, .tmenu, #tmenu_tooltip, .butAction, form, .btn-logout, .no-print { display: none !important; }
+        body, #id-right, #id-main, .fiche { background: white !important; margin: 0 !important; padding: 0 !important; width: 100% !important; box-shadow: none !important; }
+        .report-container { padding: 0 !important; margin: 0 !important; width: 100% !important; max-width: 100% !important; }
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        .report-card { box-shadow: none !important; border: 1px solid #ddd !important; page-break-inside: avoid; }
         h1 { font-size: 24px !important; }
-        .report-card div { font-size: 12pt; }
-        
-        /* Ensure Grid works on paper */
-        .grid-stats {
-            display: grid !important;
-            grid-template-columns: 1fr 1fr 1fr 1fr !important;
-            gap: 10px !important;
-        }
-        .grid-split {
-            display: grid !important;
-            grid-template-columns: 1fr 1fr !important;
-            gap: 20px !important;
-        }
+        .grid-stats { display: grid !important; grid-template-columns: 1fr 1fr 1fr 1fr !important; gap: 10px !important; }
+        .grid-split { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 20px !important; }
     }
 </style>';
 
-print '<div class="main-container" style="width: 100%; padding: 30px; box-sizing: border-box; max-width: 1200px; margin: 0 auto;">';
+print '<div class="report-container">';
 
 // HEADER
 print '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">';
 print '<div>';
-print '<h1 style="margin: 0;">📊 Impact Report</h1>';
-print '<p style="color: #666; margin: 5px 0 0 0;">Report for: <strong>'.dol_escape_htmltag($vendor->name).'</strong></p>';
+print '<h1 style="margin: 0; color: #2c3e50;">📊 Supply Performance Report</h1>';
+print '<p style="color: #666; margin: 5px 0 0 0;">Vendor: <strong>'.dol_escape_htmltag($vendor->name).'</strong></p>';
 if ($month > 0) {
     print '<p style="color: #666; margin: 0; font-size: 13px;">Period: '.date("F", mktime(0, 0, 0, $month, 10)).' '.$year.'</p>';
 } else {
     print '<p style="color: #666; margin: 0; font-size: 13px;">Period: Full Year '.$year.'</p>';
 }
 print '</div>';
-print '<a href="dashboard_vendor.php" class="butAction">← Back to Dashboard</a>';
+
+// Actions
+print '<div class="no-print" style="display: flex; gap: 10px; align-items: center;">';
+print '<a href="dashboard_vendor.php" style="color: #666; text-decoration: none; font-weight: 600;">← Dashboard</a>';
+print '<a href="'.DOL_URL_ROOT.'/user/logout.php" class="btn-logout"><span>🚪</span> Logout</a>';
+print '</div>';
 print '</div>';
 
 // FILTER FORM (Hidden on Print)
-print '<div class="report-card" style="display: flex; gap: 20px; align-items: center;">';
+print '<div class="report-card no-print" style="display: flex; gap: 20px; align-items: center;">';
 print '<form method="GET" action="'.$_SERVER['PHP_SELF'].'" style="display: flex; gap: 15px; align-items: center; width: 100%;">';
 print '<strong style="font-size: 16px;">📅 Filter By:</strong>';
 
@@ -131,7 +120,7 @@ for ($m = 1; $m <= 12; $m++) {
 }
 print '</select>';
 
-print '<button type="submit" class="butAction" style="padding: 10px 20px;">Generate Report</button>';
+print '<button type="submit" style="background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;">Generate Report</button>';
 print '</form>';
 print '</div>';
 
@@ -154,34 +143,34 @@ $res_stats = $db->query($sql_stats);
 $stats = $db->fetch_object($res_stats);
 
 // TOP STATS CARDS
-print '<div class="grid-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">';
+print '<div class="grid-stats">';
 
 // Total Value
 print '<div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); -webkit-print-color-adjust: exact;">';
-print '<div style="font-size: 14px; opacity: 0.9;">Total Value Donated</div>';
+print '<div style="font-size: 14px; opacity: 0.9;">Total Supply Value</div>';
 print '<div style="font-size: 36px; font-weight: bold;">₦'.number_format($stats->total_value ?? 0, 0).'</div>';
 print '</div>';
 
 // Total Items
 print '<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); -webkit-print-color-adjust: exact;">';
-print '<div style="font-size: 14px; opacity: 0.9;">Total Quantity</div>';
+print '<div style="font-size: 14px; opacity: 0.9;">Units Supplied</div>';
 print '<div style="font-size: 36px; font-weight: bold;">'.number_format($stats->total_qty ?? 0).' <span style="font-size: 16px;">Units</span></div>';
 print '</div>';
 
-// Total Donations
+// Total Batches
 print '<div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); -webkit-print-color-adjust: exact;">';
-print '<div style="font-size: 14px; opacity: 0.9;">Donations Made</div>';
+print '<div style="font-size: 14px; opacity: 0.9;">Batches Delivered</div>';
 print '<div style="font-size: 36px; font-weight: bold;">'.number_format($stats->total_count ?? 0).'</div>';
 print '</div>';
 
 print '</div>';
 
 // GRID FOR TABLES
-print '<div class="grid-split" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">';
+print '<div class="grid-split">';
 
 // 1. BREAKDOWN BY CATEGORY
 print '<div class="report-card">';
-print '<h2 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 15px;">📦 Donations by Category</h2>';
+print '<h2 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 15px;">📦 Supply by Category</h2>';
 
 $sql_cat = "SELECT category, COUNT(*) as count, SUM(quantity) as qty, SUM(quantity * unit_price) as val 
             FROM ".MAIN_DB_PREFIX."foodbank_donations 
@@ -218,7 +207,7 @@ print '</div>';
 
 // 2. RECENT ACTIVITY LOG
 print '<div class="report-card">';
-print '<h2 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 15px;">🕒 Recent Activity</h2>';
+print '<h2 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 15px;">🕒 Recent Log</h2>';
 
 $sql_log = "SELECT ref, date_donation, status, total_value 
             FROM ".MAIN_DB_PREFIX."foodbank_donations 
@@ -245,8 +234,8 @@ if ($db->num_rows($res_log) > 0) {
     print '</table>';
     
     // Hide "View All" on print
-    print '<div style="margin-top: 20px; text-align: center;" class="butAction">';
-    print '<a href="my_donations.php" style="color: white; text-decoration: none;">View All Transactions</a>';
+    print '<div class="no-print" style="margin-top: 20px; text-align: center;">';
+    print '<a href="my_donations.php" style="color: #667eea; text-decoration: none; font-weight: bold;">View Full History</a>';
     print '</div>';
 } else {
     print '<p style="color: #666;">No activity found.</p>';
@@ -256,8 +245,8 @@ print '</div>';
 print '</div>'; // End Grid
 
 // EXPORT BUTTON (Hidden on Print)
-print '<div style="text-align: center; margin-top: 20px;">';
-print '<button class="butAction" onclick="window.print()">🖨️ Print Report</button>';
+print '<div class="no-print" style="text-align: center; margin-top: 20px;">';
+print '<button onclick="window.print()" style="background: #2c3e50; color: white; border: none; padding: 12px 30px; border-radius: 30px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">🖨️ Print / Save as PDF</button>';
 print '</div>';
 
 print '</div>'; // End Main Container

@@ -23,7 +23,6 @@ if (!$subscriber_id) {
 }
 
 $order_id = GETPOST('order_id', 'int');
-$payment_pending = GETPOST('payment', 'alpha') == 'pending';
 
 if (!$order_id) {
     header('Location: product_catalog.php');
@@ -32,12 +31,12 @@ if (!$order_id) {
 
 llxHeader('', 'Order Confirmation');
 
-echo '<style>
-#id-left { display: none !important; }
-#id-right { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
-.fiche { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
-body { background: #f8f9fa !important; }
-.login_block { width: 100% !important; }
+// --- UI CLEANUP ---
+print '<style>
+    #id-top, .side-nav, .side-nav-vert, #id-left, .login_block, .tmenudiv, .nav-bar, header { display: none !important; }
+    html, body { background-color: #f8f9fa !important; margin: 0; width: 100%; overflow-x: hidden; }
+    #id-right, .id-right { margin: 0 !important; width: 100vw !important; max-width: 100vw !important; padding: 0 !important; }
+    .fiche { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
 </style>';
 
 // Get order details
@@ -51,50 +50,60 @@ $res = $db->query($sql);
 $order = $db->fetch_object($res);
 
 if (!$order) {
-    print '<div style="padding: 30px; text-align: center;">';
-    print '<div class="error">Order not found.</div>';
-    print '<div><a href="dashboard_beneficiary.php" class="butAction">← Go to Dashboard</a></div>';
-    print '</div>';
+    print '<div style="padding: 30px; text-align: center;"><div class="error">Order not found.</div></div>';
     llxFooter();
     exit;
 }
 
-// Get order items
-$sql_items = "SELECT * FROM ".MAIN_DB_PREFIX."foodbank_distribution_lines 
-              WHERE fk_distribution = ".(int)$order_id;
+// Get items
+$sql_items = "SELECT * FROM ".MAIN_DB_PREFIX."foodbank_distribution_lines WHERE fk_distribution = ".(int)$order_id;
 $res_items = $db->query($sql_items);
 
-// Determine status color
-$status_color = '#ffc107'; // Yellow for Pending
+// Determine Status Colors
+$status_color = '#ffc107'; 
 if ($order->status == 'Delivered') $status_color = '#28a745';
 if ($order->status == 'Pending') $status_color = '#17a2b8';
 
-print '<div style="width: 100%; padding: 30px; box-sizing: border-box; max-width: 1200px; margin: 0 auto;">';
+// --- LOGIC: DETERMINE PAGE CONTENT ---
+$is_cod = ($order->payment_method == 'pay_on_delivery');
+$is_paid = ($order->payment_status == 'Paid' || $order->payment_status == 'Success');
+$is_pending_paystack = (!$is_cod && !$is_paid);
 
-// Success Header
-print '<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 60px 40px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 8px 16px rgba(102,126,234,0.3);">';
-print '<div style="font-size: 80px; margin-bottom: 20px; animation: bounce 1s ease;">✓</div>';
-print '<h1 style="margin: 0 0 15px 0; font-size: 36px;">Order Placed Successfully!</h1>';
-print '<p style="font-size: 18px; margin: 0; opacity: 0.9;">Thank you for your order, '.dol_escape_htmltag($order->firstname).'!</p>';
-print '<p style="font-size: 14px; margin: 10px 0 0 0; opacity: 0.8;">Order #'.dol_escape_htmltag($order->ref).'</p>';
-print '</div>';
+print '<div style="width: 100%; padding: 30px; box-sizing: border-box; max-width: 1200px; margin: 0 auto; font-family: \'Segoe UI\', sans-serif;">';
 
-// Payment Pending Alert
-if ($payment_pending) {
-    print '<div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 25px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">';
-    print '<h3 style="margin: 0 0 15px 0; color: #856404; display: flex; align-items: center;"><span style="font-size: 24px; margin-right: 10px;">⚠️</span> Payment Pending</h3>';
-    print '<p style="margin: 0 0 15px 0; color: #856404;">Please complete your payment to process your order.</p>';
-    print '<a href="process_order_payment.php?order_id='.$order_id.'" class="butAction" style="display: inline-block;">💳 Complete Payment with Paystack</a>';
+// --- HEADER SECTION (CHANGES BASED ON PAYMENT) ---
+
+if ($is_cod) {
+    // 1. CASH ON DELIVERY
+    print '<div style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 60px 40px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 8px 16px rgba(56,239,125,0.3);">';
+    print '<div style="font-size: 80px; margin-bottom: 20px;">📦</div>';
+    print '<h1 style="margin: 0 0 15px 0; font-size: 36px;">Order Confirmed!</h1>';
+    print '<p style="font-size: 18px; margin: 0;">Order placed. Please pay <strong>₦'.number_format($order->total_amount, 2).'</strong> on delivery.</p>';
+    print '</div>';
+
+} elseif ($is_pending_paystack) {
+    // 2. PAYSTACK PENDING (Warning)
+    print '<div style="background: #fff3cd; border-left: 6px solid #ffc107; padding: 40px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); text-align: center;">';
+    print '<div style="font-size: 60px; margin-bottom: 15px;">⚠️</div>';
+    print '<h1 style="margin: 0 0 10px 0; color: #856404;">Payment Incomplete</h1>';
+    print '<p style="margin: 0 0 20px 0; color: #856404; font-size: 16px;">Your order is saved, but payment is pending.</p>';
+    print '<a href="process_order_payment.php?order_id='.$order_id.'" class="butAction" style="display: inline-block; padding: 12px 30px; font-size: 16px; background: #28a745; color: white; border-radius: 50px;">💳 Complete Payment Now</a>';
+    print '</div>';
+
+} else {
+    // 3. PAID (Standard Success)
+    print '<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 60px 40px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 8px 16px rgba(102,126,234,0.3);">';
+    print '<div style="font-size: 80px; margin-bottom: 20px;">✓</div>';
+    print '<h1 style="margin: 0 0 15px 0; font-size: 36px;">Order Placed Successfully!</h1>';
+    print '<p style="font-size: 18px; margin: 0;">Thank you for your order, '.dol_escape_htmltag($order->firstname).'!</p>';
     print '</div>';
 }
 
-// Main Content Grid
+// --- GRID LAYOUT ---
 print '<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 30px;">';
 
-// LEFT COLUMN - Order Items
+// LEFT: ITEMS
 print '<div>';
-
-// Order Items Card
 print '<div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">';
 print '<h2 style="margin: 0 0 20px 0; display: flex; align-items: center; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px;">';
 print '<span style="font-size: 28px; margin-right: 10px;">📦</span> Order Items';
@@ -110,105 +119,38 @@ if ($res_items && $db->num_rows($res_items) > 0) {
         print '<div style="font-size: 18px; font-weight: bold; color: #28a745;">✓</div>';
         print '</div>';
     }
-} else {
-    print '<div style="text-align: center; padding: 40px; color: #999;">';
-    print '<div style="font-size: 48px; margin-bottom: 15px;">📦</div>';
-    print '<p>Order items are being processed...</p>';
-    print '</div>';
 }
+print '</div></div>';
 
-print '</div>';
-
-// What Happens Next
-print '<div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(67,233,123,0.3);">';
-print '<h3 style="margin: 0 0 20px 0; font-size: 20px; display: flex; align-items: center;">';
-print '<span style="font-size: 28px; margin-right: 10px;">📋</span> What Happens Next?';
-print '</h3>';
-print '<div style="display: flex; flex-direction: column; gap: 15px;">';
-
-$steps = [
-    ['icon' => '⏳', 'title' => 'Order Review', 'desc' => 'We\'re reviewing your order now'],
-    ['icon' => '✅', 'title' => 'Preparation', 'desc' => 'Your items will be prepared'],
-    ['icon' => '📦', 'title' => 'Packing', 'desc' => 'Carefully packed for delivery'],
-    ['icon' => '🚚', 'title' => 'Delivery', 'desc' => 'Delivered in 2-4 business days']
-];
-
-foreach ($steps as $i => $step) {
-    print '<div style="display: flex; align-items: start; gap: 15px;">';
-    print '<div style="font-size: 32px; min-width: 40px;">'.$step['icon'].'</div>';
-    print '<div style="flex: 1;">';
-    print '<div style="font-weight: bold; font-size: 16px; margin-bottom: 5px;">'.$step['title'].'</div>';
-    print '<div style="font-size: 14px; opacity: 0.9;">'.$step['desc'].'</div>';
-    print '</div>';
-    print '</div>';
-}
-
-print '</div>';
-print '</div>';
-
-print '</div>'; // End left column
-
-// RIGHT COLUMN - Order Details
+// RIGHT: DETAILS
 print '<div>';
-
-// Order Information Card
-print '<div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">';
+print '<div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">';
 print '<h3 style="margin: 0 0 20px 0; display: flex; align-items: center; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px;">';
 print '<span style="font-size: 24px; margin-right: 10px;">📋</span> Order Details';
 print '</h3>';
 
-$details = [
-    ['label' => 'Order Ref', 'value' => $order->ref, 'bold' => true],
-    ['label' => 'Date', 'value' => dol_print_date($db->jdate($order->date_distribution), 'day')],
-    ['label' => 'Status', 'value' => '<span style="background: '.$status_color.'; color: white; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: bold;">'.dol_escape_htmltag($order->status).'</span>', 'html' => true],
-    ['label' => 'Payment', 'value' => ucfirst(str_replace('_', ' ', $order->payment_method))],
-    ['label' => 'Amount', 'value' => '₦'.number_format($order->total_amount, 2), 'bold' => true, 'color' => '#28a745']
-];
+$pay_label = $is_cod ? 'Cash on Delivery' : ($is_paid ? 'Paid via Paystack' : 'Pending');
 
-foreach ($details as $detail) {
-    print '<div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f8f9fa;">';
-    print '<span style="color: #666; font-size: 14px;">'.$detail['label'].':</span>';
-    if (isset($detail['html']) && $detail['html']) {
-        print '<span>'.$detail['value'].'</span>';
-    } else {
-        $style = 'font-size: 14px;';
-        if (isset($detail['bold']) && $detail['bold']) $style .= ' font-weight: bold;';
-        if (isset($detail['color'])) $style .= ' color: '.$detail['color'].';';
-        print '<span style="'.$style.'">'.dol_escape_htmltag($detail['value']).'</span>';
-    }
-    print '</div>';
-}
+print '<div style="margin-bottom: 12px; display: flex; justify-content: space-between;"><span style="color:#666;">Ref:</span> <strong>'.dol_escape_htmltag($order->ref).'</strong></div>';
+print '<div style="margin-bottom: 12px; display: flex; justify-content: space-between;"><span style="color:#666;">Status:</span> <strong>'.dol_escape_htmltag($order->status).'</strong></div>';
+print '<div style="margin-bottom: 12px; display: flex; justify-content: space-between;"><span style="color:#666;">Payment:</span> <strong>'.$pay_label.'</strong></div>';
+print '<div style="margin-top: 15px; padding-top:15px; border-top:1px solid #eee; display: flex; justify-content: space-between; font-size: 18px; color: #28a745; font-weight: bold;"><span>Total:</span> <span>₦'.number_format($order->total_amount, 2).'</span></div>';
 
 print '</div>';
 
-// Delivery Information Card
-print '<div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">';
-print '<h3 style="margin: 0 0 20px 0; display: flex; align-items: center; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px;">';
-print '<span style="font-size: 24px; margin-right: 10px;">🚚</span> Delivery Info';
-print '</h3>';
-
-print '<div style="margin-bottom: 15px;">';
-print '<div style="color: #666; font-size: 13px; margin-bottom: 5px;">DELIVERY ADDRESS</div>';
-print '<div style="font-size: 14px; line-height: 1.6;">'.nl2br(dol_escape_htmltag($order->note)).'</div>';
-print '</div>';
-
-print '<div style="margin-bottom: 15px;">';
-print '<div style="color: #666; font-size: 13px; margin-bottom: 5px;">PHONE NUMBER</div>';
-print '<div style="font-size: 14px; font-weight: bold;">'.dol_escape_htmltag($order->phone).'</div>';
-print '</div>';
-
-print '<div>';
-print '<div style="color: #666; font-size: 13px; margin-bottom: 5px;">ESTIMATED DELIVERY</div>';
-print '<div style="font-size: 14px; font-weight: bold; color: #28a745;">2-4 business days</div>';
-print '</div>';
-
+// Delivery Info
+print '<div style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-top: 20px;">';
+print '<h3 style="margin: 0 0 20px 0; font-size: 18px;">🚚 Delivery Info</h3>';
+print '<p style="margin-bottom: 5px; color:#666; font-size: 13px;">ADDRESS</p>';
+print '<p style="margin-bottom: 15px;">'.dol_escape_htmltag($order->note).'</p>';
+print '<p style="margin-bottom: 5px; color:#666; font-size: 13px;">PHONE</p>';
+print '<p>'.dol_escape_htmltag($order->phone).'</p>';
 print '</div>';
 
 print '</div>'; // End right column
-
 print '</div>'; // End grid
 
-// Action Buttons
+// Buttons
 print '<div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">';
 print '<a href="my_orders.php" class="butAction" style="min-width: 200px; text-align: center;">📋 View All Orders</a>';
 print '<a href="product_catalog.php" class="butAction" style="min-width: 200px; text-align: center;">🛒 Continue Shopping</a>';

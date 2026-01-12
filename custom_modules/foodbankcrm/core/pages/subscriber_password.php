@@ -1,4 +1,7 @@
 <?php
+/**
+ * Subscriber Change Password - Modern UI
+ */
 define('NOTOKENRENEWAL', 1);
 define('NOCSRFCHECK', 1);
 
@@ -19,13 +22,79 @@ if (!$user_is_beneficiary) {
 
 llxHeader('', 'Change Password');
 
-// 2. PORTAL MODE CSS
-echo '<style>
-#id-left { display: none !important; }
-#id-right { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
-.fiche { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
-body { background: #f8f9fa !important; }
-.login_block { width: 100% !important; }
+// 2. MODERN UI & HIDE CHROME CSS
+print '<style>
+    /* 1. HIDE DOLIBARR CHROME */
+    #id-top, .side-nav, .side-nav-vert, #id-left, .login_block, .tmenudiv, .nav-bar, header {
+        display: none !important;
+    }
+    
+    /* 2. LAYOUT */
+    html, body { background-color: #f8f9fa !important; margin: 0; width: 100%; overflow-x: hidden; }
+    #id-right, .id-right { margin: 0 !important; width: 100vw !important; max-width: 100vw !important; padding: 0 !important; }
+    .fiche { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
+
+    /* 3. CONTAINER & CARD */
+    .ben-container { width: 95%; max-width: 600px; margin: 0 auto; padding: 40px 20px; font-family: "Segoe UI", sans-serif; }
+    
+    .auth-card {
+        background: white;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border: 1px solid #f0f0f0;
+    }
+
+    /* 4. FORM ELEMENTS */
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50; font-size: 14px; }
+    .form-control {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 15px;
+        transition: all 0.2s;
+        box-sizing: border-box;
+    }
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        outline: none;
+    }
+
+    /* 5. BUTTONS */
+    .btn-save {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        padding: 14px 28px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 15px;
+        cursor: pointer;
+        width: 100%;
+        transition: transform 0.1s;
+    }
+    .btn-save:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(118,75,162,0.3); }
+    
+    .btn-back {
+        text-decoration: none;
+        color: #666;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 6px;
+        transition: background 0.2s;
+    }
+    .btn-back:hover { background: #e9ecef; color: #333; }
+
+    /* 6. ALERTS */
+    .alert-box { padding: 15px; border-radius: 8px; margin-bottom: 25px; font-weight: 500; font-size: 14px; }
+    .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
 </style>';
 
 $error = '';
@@ -50,58 +119,56 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['savepass'])) {
         } else {
             // Update Password
             $user->setPassword($user, $pass_new, 0, 0, 1);
-            $msg = '<div class="ok" style="padding:15px; background:#d4edda; color:#155724; border:1px solid #c3e6cb; border-radius:5px; margin-bottom:20px;">✓ Password changed successfully!</div>';
+            $msg = '<div class="alert-box alert-success">✓ Password changed successfully!</div>';
         }
     }
 }
 
 // 4. MAIN CONTAINER
-print '<div style="width: 100%; padding: 30px; box-sizing: border-box; max-width: 600px; margin: 0 auto;">';
+print '<div class="ben-container">';
 
 // Header
-print '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">';
+print '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">';
 print '<div>';
-print '<h1 style="margin: 0;">🔐 Change Password</h1>';
-print '<p style="color: #666; margin: 5px 0 0 0;">Secure your account</p>';
+print '<h1 style="margin: 0 0 5px 0; color: #2c3e50;">🔐 Change Password</h1>';
+print '<p style="margin: 0; color: #666;">Secure your account</p>';
 print '</div>';
-print '<a href="my_profile.php" class="butAction">← Back to Profile</a>';
+print '<a href="my_profile.php" class="btn-back"><span>←</span> Back to Profile</a>';
 print '</div>';
 
 if ($error) {
-    print '<div class="error" style="padding:15px; background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; border-radius:5px; margin-bottom:20px;">Error: '.$error.'</div>';
+    print '<div class="alert-box alert-error">Error: '.$error.'</div>';
 }
 print $msg;
 
-// FORM
-print '<div style="background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">';
+// FORM CARD
+print '<div class="auth-card">';
 print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
 
-print '<div style="margin-bottom: 20px;">';
-print '<label style="display:block; margin-bottom:8px; font-weight:bold;">Current Password</label>';
-print '<input type="password" name="pass_old" required class="flat" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:5px;">';
+print '<div class="form-group">';
+print '<label class="form-label">Current Password</label>';
+print '<input type="password" name="pass_old" required class="form-control" placeholder="Enter current password">';
 print '</div>';
 
-print '<hr style="margin: 25px 0; border: 0; border-top: 1px solid #eee;">';
+print '<hr style="margin: 30px 0; border: 0; border-top: 1px solid #eee;">';
 
-print '<div style="margin-bottom: 20px;">';
-print '<label style="display:block; margin-bottom:8px; font-weight:bold;">New Password</label>';
-print '<input type="password" name="pass_new" required class="flat" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:5px;">';
+print '<div class="form-group">';
+print '<label class="form-label">New Password</label>';
+print '<input type="password" name="pass_new" required class="form-control" placeholder="Enter new password">';
 print '</div>';
 
-print '<div style="margin-bottom: 30px;">';
-print '<label style="display:block; margin-bottom:8px; font-weight:bold;">Confirm New Password</label>';
-print '<input type="password" name="pass_new2" required class="flat" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:5px;">';
+print '<div class="form-group" style="margin-bottom: 30px;">';
+print '<label class="form-label">Confirm New Password</label>';
+print '<input type="password" name="pass_new2" required class="form-control" placeholder="Repeat new password">';
 print '</div>';
 
-print '<div style="text-align: center;">';
-print '<button type="submit" name="savepass" class="butAction" style="padding: 12px 40px; font-size: 16px;">Update Password</button>';
-print '</div>';
+print '<button type="submit" name="savepass" class="btn-save">Update Password</button>';
 
 print '</form>';
 print '</div>';
 
-print '</div>';
+print '</div>'; // End Container
 
 llxFooter();
 ?>

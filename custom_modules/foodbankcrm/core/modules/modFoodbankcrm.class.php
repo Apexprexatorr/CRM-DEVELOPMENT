@@ -12,10 +12,10 @@ class modFoodbankcrm extends DolibarrModules
         $this->rights_class = 'foodbankcrm';
         $this->family       = 'crm';
         $this->module_position = 500000;
-        $this->picto = 'generic';
+        $this->picto        = 'generic';
         $this->name         = 'foodbankcrm';
         $this->description  = 'Foodbank CRM custom module';
-        $this->version      = '1.2';
+        $this->version      = '1.4';
         $this->editor_name  = 'Olayode Boladde';
         $this->editor_url   = '';
 
@@ -28,9 +28,32 @@ class modFoodbankcrm extends DolibarrModules
         $this->depends      = array();
         $this->requiredby   = array();
         $this->conflictwith = array();
-
         $this->module_parts = array();
-        // ---- Permissions ----
+
+        // =================================================================
+        // 1. INJECT LOGIN PAGE BUTTONS (Register / Vendor Application)
+        // =================================================================
+        $this->const = array();
+        $r = 0;
+
+        $html_buttons = '<div style="margin-top:20px; border-top:1px solid #eee; padding-top:15px; text-align:center;">';
+        $html_buttons .= '<a href="'.DOL_URL_ROOT.'/custom/foodbankcrm/core/pages/register.php" style="display:block; margin-bottom:10px; text-decoration:none; background:#667eea; color:white; padding:10px; border-radius:5px; font-weight:bold;">👤 Register as Beneficiary</a>';
+        $html_buttons .= '<a href="'.DOL_URL_ROOT.'/custom/foodbankcrm/core/pages/register_vendor.php" style="display:block; text-decoration:none; background:#f8f9fa; color:#333; border:1px solid #ddd; padding:10px; border-radius:5px; font-weight:bold;">🏢 Become a Vendor</a>';
+        $html_buttons .= '</div>';
+
+        $this->const[$r] = array(
+            'name' => 'MAIN_LOGIN_INSTRUCTIONS',
+            'consttype' => 'chaine',
+            'value' => $html_buttons,
+            'note' => 'Added by FoodbankCRM',
+            'visible' => 1
+        );
+        $r++;
+
+
+        // =================================================================
+        // 2. PERMISSIONS
+        // =================================================================
         $this->rights = array();
         $r = 0;
 
@@ -98,18 +121,21 @@ class modFoodbankcrm extends DolibarrModules
         $this->rights[$r][5] = 'view_own';
         $r++;
 
-        // ---- Menus ----
+
+        // =================================================================
+        // 3. MENUS
+        // =================================================================
         $this->menu = array();
         $r = 0;
 
-        // Top menu
+        // --- Top Menu ---
         $this->menu[$r] = array(
             'fk_menu'   => '',
             'type'      => 'top',
             'titre'     => 'Foodbank CRM',
             'mainmenu'  => 'foodbankcrm',
             'leftmenu'  => '',
-            'url'       => '/custom/foodbankcrm/index.php',
+            'url'       => '/custom/foodbankcrm/core/pages/dashboard_admin.php',
             'langs'     => 'foodbankcrm@foodbankcrm',
             'position'  => 1000,
             'enabled'   => '1',
@@ -119,8 +145,24 @@ class modFoodbankcrm extends DolibarrModules
         );
         $r++;
 
-        // ===== ADMIN-ONLY LEFT MENU ITEMS =====
-        
+        // --- ADMIN SIDEBAR ITEMS ---
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Admin Overview',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_overview',
+            'url'       => '/custom/foodbankcrm/core/pages/dashboard_admin.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1000,
+            'enabled'   => '1',
+            'perms'     => '$user->admin',
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
         $this->menu[$r] = array(
             'fk_menu'   => 'fk_mainmenu=foodbankcrm',
             'type'      => 'left',
@@ -129,9 +171,9 @@ class modFoodbankcrm extends DolibarrModules
             'leftmenu'  => 'foodbankcrm_beneficiaries',
             'url'       => '/custom/foodbankcrm/core/pages/beneficiaries.php',
             'langs'     => 'foodbankcrm@foodbankcrm',
-            'position'  => 1001,
+            'position'  => 1100,
             'enabled'   => '1',
-            'perms'     => '$user->admin', // ADMIN ONLY
+            'perms'     => '$user->admin',
             'target'    => '',
             'user'      => 2
         );
@@ -145,9 +187,9 @@ class modFoodbankcrm extends DolibarrModules
             'leftmenu'  => 'foodbankcrm_vendors',
             'url'       => '/custom/foodbankcrm/core/pages/vendors.php',
             'langs'     => 'foodbankcrm@foodbankcrm',
-            'position'  => 1002,
+            'position'  => 1110,
             'enabled'   => '1',
-            'perms'     => '$user->admin', // ADMIN ONLY
+            'perms'     => '$user->admin',
             'target'    => '',
             'user'      => 2
         );
@@ -156,46 +198,30 @@ class modFoodbankcrm extends DolibarrModules
         $this->menu[$r] = array(
             'fk_menu'   => 'fk_mainmenu=foodbankcrm',
             'type'      => 'left',
-            'titre'     => 'Donations',
+            'titre'     => 'Vendor Support',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_support',
+            'url'       => '/custom/foodbankcrm/core/pages/vendor_support.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1120,
+            'enabled'   => '1',
+            'perms'     => '$user->admin',
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Inventory Logs',
             'mainmenu'  => 'foodbankcrm',
             'leftmenu'  => 'foodbankcrm_donations',
             'url'       => '/custom/foodbankcrm/core/pages/donations.php',
             'langs'     => 'foodbankcrm@foodbankcrm',
-            'position'  => 1003,
+            'position'  => 1200,
             'enabled'   => '1',
-            'perms'     => '$user->admin', // ADMIN ONLY
-            'target'    => '',
-            'user'      => 2
-        );
-        $r++;
-
-        $this->menu[$r] = array(
-            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
-            'type'      => 'left',
-            'titre'     => 'Packages',
-            'mainmenu'  => 'foodbankcrm',
-            'leftmenu'  => 'foodbankcrm_packages',
-            'url'       => '/custom/foodbankcrm/core/pages/packages.php',
-            'langs'     => 'foodbankcrm@foodbankcrm',
-            'position'  => 1004,
-            'enabled'   => '1',
-            'perms'     => '$user->admin', // ADMIN ONLY
-            'target'    => '',
-            'user'      => 2
-        );
-        $r++;
-
-        $this->menu[$r] = array(
-            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
-            'type'      => 'left',
-            'titre'     => 'Distributions',
-            'mainmenu'  => 'foodbankcrm',
-            'leftmenu'  => 'foodbankcrm_distributions',
-            'url'       => '/custom/foodbankcrm/core/pages/distributions.php',
-            'langs'     => 'foodbankcrm@foodbankcrm',
-            'position'  => 1005,
-            'enabled'   => '1',
-            'perms'     => '$user->admin', // ADMIN ONLY
+            'perms'     => '$user->admin',
             'target'    => '',
             'user'      => 2
         );
@@ -209,9 +235,41 @@ class modFoodbankcrm extends DolibarrModules
             'leftmenu'  => 'foodbankcrm_warehouses',
             'url'       => '/custom/foodbankcrm/core/pages/warehouses.php',
             'langs'     => 'foodbankcrm@foodbankcrm',
-            'position'  => 1006,
+            'position'  => 1210,
             'enabled'   => '1',
-            'perms'     => '$user->admin', // ADMIN ONLY
+            'perms'     => '$user->admin',
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Packages',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_packages',
+            'url'       => '/custom/foodbankcrm/core/pages/packages.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1220,
+            'enabled'   => '1',
+            'perms'     => '$user->admin',
+            'target'    => '',
+            'user'      => 2
+        );
+        $r++;
+
+        $this->menu[$r] = array(
+            'fk_menu'   => 'fk_mainmenu=foodbankcrm',
+            'type'      => 'left',
+            'titre'     => 'Distributions',
+            'mainmenu'  => 'foodbankcrm',
+            'leftmenu'  => 'foodbankcrm_distributions',
+            'url'       => '/custom/foodbankcrm/core/pages/distributions.php',
+            'langs'     => 'foodbankcrm@foodbankcrm',
+            'position'  => 1230,
+            'enabled'   => '1',
+            'perms'     => '$user->admin',
             'target'    => '',
             'user'      => 2
         );
@@ -225,9 +283,9 @@ class modFoodbankcrm extends DolibarrModules
             'leftmenu'  => 'foodbankcrm_tiers',
             'url'       => '/custom/foodbankcrm/core/pages/subscription_tiers.php',
             'langs'     => 'foodbankcrm@foodbankcrm',
-            'position'  => 1007,
+            'position'  => 1300,
             'enabled'   => '1',
-            'perms'     => '$user->admin', // ADMIN ONLY
+            'perms'     => '$user->admin',
             'target'    => '',
             'user'      => 2
         );
@@ -241,9 +299,9 @@ class modFoodbankcrm extends DolibarrModules
             'leftmenu'  => 'foodbankcrm_users',
             'url'       => '/custom/foodbankcrm/core/pages/user_management.php',
             'langs'     => 'foodbankcrm@foodbankcrm',
-            'position'  => 1008,
+            'position'  => 1400,
             'enabled'   => '1',
-            'perms'     => '$user->admin', // ADMIN ONLY
+            'perms'     => '$user->admin',
             'target'    => '',
             'user'      => 2
         );
@@ -252,32 +310,33 @@ class modFoodbankcrm extends DolibarrModules
         $this->menu[$r] = array(
             'fk_menu'   => 'fk_mainmenu=foodbankcrm',
             'type'      => 'left',
-            'titre'     => 'Product Catalog',
+            'titre'     => 'Settings',
             'mainmenu'  => 'foodbankcrm',
-            'leftmenu'  => 'foodbankcrm_products',
-            'url'       => '/custom/foodbankcrm/core/pages/product_catalog.php',
+            'leftmenu'  => 'foodbankcrm_setup',
+            'url'       => '/admin/foodbankcrm.php?save_lastsearch_values=1',
             'langs'     => 'foodbankcrm@foodbankcrm',
-            'position'  => 1009,
+            'position'  => 1410,
             'enabled'   => '1',
-            'perms'     => '$user->admin', // ADMIN ONLY
+            'perms'     => '$user->admin',
             'target'    => '',
             'user'      => 2
         );
         $r++;
 
-        // ===== VENDOR MENU ITEMS =====
-        
+
+        // --- VENDOR SIDEBAR ITEMS ---
+
         $this->menu[$r] = array(
             'fk_menu'   => 'fk_mainmenu=foodbankcrm',
             'type'      => 'left',
-            'titre'     => 'My Donations',
+            'titre'     => 'My Supply History',
             'mainmenu'  => 'foodbankcrm',
             'leftmenu'  => 'foodbankcrm_my_donations',
             'url'       => '/custom/foodbankcrm/core/pages/my_donations.php',
             'langs'     => 'foodbankcrm@foodbankcrm',
             'position'  => 2001,
             'enabled'   => '1',
-            'perms'     => '$user->rights->foodbankcrm->vendor->view_own', // VENDOR ONLY
+            'perms'     => '$user->rights->foodbankcrm->vendor->view_own && !$user->admin',
             'target'    => '',
             'user'      => 2
         );
@@ -286,21 +345,22 @@ class modFoodbankcrm extends DolibarrModules
         $this->menu[$r] = array(
             'fk_menu'   => 'fk_mainmenu=foodbankcrm',
             'type'      => 'left',
-            'titre'     => 'Submit Donation',
+            'titre'     => 'Add Inventory',
             'mainmenu'  => 'foodbankcrm',
             'leftmenu'  => 'foodbankcrm_create_donation',
             'url'       => '/custom/foodbankcrm/core/pages/create_donation.php',
             'langs'     => 'foodbankcrm@foodbankcrm',
             'position'  => 2002,
             'enabled'   => '1',
-            'perms'     => '$user->rights->foodbankcrm->vendor->create_donation', // VENDOR ONLY
+            'perms'     => '$user->rights->foodbankcrm->vendor->create_donation && !$user->admin',
             'target'    => '',
             'user'      => 2
         );
         $r++;
 
-        // ===== BENEFICIARY MENU ITEMS =====
-        
+
+        // --- BENEFICIARY SIDEBAR ITEMS ---
+
         $this->menu[$r] = array(
             'fk_menu'   => 'fk_mainmenu=foodbankcrm',
             'type'      => 'left',
@@ -311,7 +371,7 @@ class modFoodbankcrm extends DolibarrModules
             'langs'     => 'foodbankcrm@foodbankcrm',
             'position'  => 3001,
             'enabled'   => '1',
-            'perms'     => '$user->rights->foodbankcrm->beneficiary->view_own', // BENEFICIARY ONLY
+            'perms'     => '$user->rights->foodbankcrm->beneficiary->view_own && !$user->admin',
             'target'    => '',
             'user'      => 2
         );
@@ -327,12 +387,13 @@ class modFoodbankcrm extends DolibarrModules
             'langs'     => 'foodbankcrm@foodbankcrm',
             'position'  => 3002,
             'enabled'   => '1',
-            'perms'     => '$user->rights->foodbankcrm->beneficiary->dashboard', // BENEFICIARY ONLY
+            'perms'     => '$user->rights->foodbankcrm->beneficiary->dashboard && !$user->admin',
             'target'    => '',
             'user'      => 2
         );
         $r++;
-    }
+
+    } // <--- Constructor Ends Here (Correctly!)
 
     public function init($options = '')
     {

@@ -1,87 +1,42 @@
 <?php
-// delete_distribution.php
-
 require_once dirname(__DIR__, 4) . '/main.inc.php';
-require_once DOL_DOCUMENT_ROOT.'/custom/foodbankcrm/class/distribution.class.php';
-require_once DOL_DOCUMENT_ROOT.'/custom/foodbankcrm/class/beneficiary.class.php';
-
+require_once dirname(__DIR__, 3) . '/foodbankcrm/class/distribution.class.php';
 $langs->load("admin");
-llxHeader();
+llxHeader('', 'Delete Shipment');
 
-if (!isset($_GET['id']) || empty($_GET['id'])) {
-    print '<div class="error">Distribution ID is missing.</div>';
-    print '<div><a href="distributions.php">Back to Distributions</a></div>';
+print '<style>div#id-top, #id-top { display: none !important; } .side-nav { top: 0 !important; height: 100vh !important; } #id-right { padding-top: 50px !important; } .fb-container { max-width: 600px; margin: 0 auto; text-align: center; } .warning-card { background: #fff; border-radius: 12px; padding: 40px; border-top: 6px solid #dc3545; box-shadow: 0 10px 25px rgba(0,0,0,0.1); } .button-danger { background: #dc3545; color: white; padding: 12px 30px; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; } .button-cancel { background: #eee; color: #333; padding: 12px 30px; text-decoration: none; font-weight: bold; border-radius: 5px; }</style>';
+
+$id = (int)$_GET['id'];
+$d = new Distribution($db);
+
+print '<div class="fb-container">';
+
+if ($d->fetch($id) <= 0) {
+    print '<div class="warning-card"><h2>Record Not Found</h2><br><a href="distributions.php" class="button-cancel">Return to List</a></div>';
     llxFooter(); exit;
 }
 
-$id = (int)$_GET['id'];
-
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    // === SHOW CONFIRMATION ===
-    $dist = new Distribution($db);
-    if ($dist->fetch($id) <= 0) {
-        print '<div class="error">Distribution not found.</div>';
-        print '<div><a href="distributions.php">Back to Distributions</a></div>';
-        llxFooter(); exit;
-    }
-
-    $b = new Beneficiary($db);
-    $beneficiary = ($dist->fk_beneficiary && $b->fetch($dist->fk_beneficiary) > 0)
-        ? dol_escape_htmltag($b->firstname.' '.$b->lastname)
-        : '—';
-
-    $warehouse = '—';
-    $sqlw = "SELECT label FROM ".MAIN_DB_PREFIX."foodbank_warehouses WHERE rowid = ".(int)$dist->fk_warehouse;
-    $resw = $db->query($sqlw);
-    if ($resw && ($objw = $db->fetch_object($resw))) {
-        $warehouse = dol_escape_htmltag($objw->label);
-    }
-
-    print '<div class="warning">';
-    print '<p><strong>Are you sure you want to delete this distribution?</strong></p>';
-    print '<p><strong>Ref:</strong> '.dol_escape_htmltag($dist->ref).'</p>';
-    print '<p><strong>Beneficiary:</strong> '.$beneficiary.'</p>';
-    print '<p><strong>Warehouse:</strong> '.$warehouse.'</p>';
-    print '<p><strong>Date:</strong> '.dol_print_date($db->jdate($dist->date_distribution), 'day').'</p>';
-    print '<p><strong>Note:</strong> '.dol_escape_htmltag($dist->note ?: '—').'</p>';
-    print '</div>';
-
+    print '<div class="warning-card">';
+    print '<h2 style="color: #dc3545;">Delete Shipment?</h2>';
+    print '<p>Are you sure you want to delete <strong>'.$d->ref.'</strong>?</p>';
+    print '<p style="color: #666; font-size: 13px;">Note: This will restore the inventory allocated to this order.</p>';
     print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'?id='.$id.'">';
     print '<input type="hidden" name="token" value="'.newToken().'">';
-    print '<input class="button butActionDelete" type="submit" value="Yes, delete">';
-    print ' <a class="button" href="distributions.php">Cancel</a>';
-    print '</form>';
-
+    print '<div style="margin-top: 30px; display: flex; gap: 15px; justify-content: center;">';
+    print '<a href="distributions.php" class="button-cancel">Cancel</a>';
+    print '<button type="submit" name="confirm" class="button-danger">Yes, Delete</button>';
+    print '</div></form></div>';
 } else {
-    // === TRY TO DELETE ===
-    if (!isset($_POST['token']) || $_POST['token'] != $_SESSION['newtoken']) {
-        print '<div class="error">Invalid CSRF token.</div>';
+    if (!isset($_POST['token']) || $_POST['token'] != $_SESSION['newtoken']) die("Invalid Token");
+    
+    if ($d->delete($user) > 0) {
+        print '<div class="warning-card" style="border-top-color: #28a745;"><h2>Deleted Successfully</h2><p>Inventory has been restored.</p><br><a href="distributions.php" class="button-cancel">Back to List</a></div>';
     } else {
-        $dist = new Distribution($db);
-        if ($dist->fetch($id) <= 0) {
-            print '<div class="error">Distribution not found.</div>';
-        } else {
-            $res = $dist->delete($user);
-
-            if ($res > 0) {
-                print '<div class="ok">Distribution deleted successfully!</div>';
-            } else {
-                // === FRIENDLY BLOCKED MESSAGE ===
-               print '<div class="error" style="padding:20px; background:#ffebee; border:2px solid #c62828; border-radius:10px; font-size:15px;">';
-                print '<strong>CANNOT DELETE THIS DISTRIBUTION</strong><br><br>';
-                print 'This distribution is <strong>permanently linked</strong> to:<br>';
-                print '• A real beneficiary who received food<br>';
-                print '• A warehouse with updated stock levels<br><br>';
-                print 'Deleting it would corrupt your inventory and audit trail.<br><br>';
-                print 'To remove food safely:<br>';
-                print '→ Create a <strong>Return</strong> entry<br>';
-                print '→ Or use <strong>Stock Adjustment</strong><br><br>';
-                print '<em>This protection cannot be bypassed.</em>';
-                print '</div>';
-            }
-        }
-        print '<div style="margin-top:20px;"><a href="distributions.php">Back to Distributions</a></div>';
+        print '<div class="warning-card"><h2>Error</h2><p>'.$d->error.'</p><br><a href="distributions.php" class="button-cancel">Back to List</a></div>';
     }
 }
+
+print '</div>';
 llxFooter();
 ?>

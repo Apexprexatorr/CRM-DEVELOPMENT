@@ -1,176 +1,194 @@
 <?php
 /**
- * Beneficiary/Subscriber Dashboard
+ * Beneficiary/Subscriber Dashboard - FULL SCREEN FLUID LAYOUT
  */
-
 define('NOTOKENRENEWAL', 1);
 define('NOCSRFCHECK', 1);
-
 require_once dirname(__DIR__, 4) . '/main.inc.php';
 require_once DOL_DOCUMENT_ROOT.'/custom/foodbankcrm/class/permissions.class.php';
 
 global $user, $db, $conf;
-
-// Reset redirect flag
-if (isset($_SESSION['foodbank_checked'])) {
-    $_SESSION['foodbank_checked'] = false;
-}
-
 $langs->load("admin");
 
-// Security check - beneficiary only
-$user_is_beneficiary = FoodbankPermissions::isBeneficiary($user, $db);
-
-if (!$user_is_beneficiary) {
-    accessforbidden('You do not have access to the beneficiary dashboard.');
+// Security Check
+if (!FoodbankPermissions::isBeneficiary($user, $db)) {
+    accessforbidden('Access Denied: You are not a registered beneficiary.');
 }
 
-// Get subscriber information
+// Fetch Subscriber Profile
 $sql = "SELECT * FROM ".MAIN_DB_PREFIX."foodbank_beneficiaries WHERE fk_user = ".(int)$user->id;
 $res = $db->query($sql);
-
 if (!$res || $db->num_rows($res) == 0) {
-    llxHeader('', 'Subscriber Dashboard');
-    print '<div class="error">Subscriber profile not found. Please contact administrator.</div>';
-    llxFooter();
-    exit;
+    accessforbidden('Profile not found. Please contact support.');
 }
-
 $subscriber = $db->fetch_object($res);
-$subscriber_id = $subscriber->rowid;
 
-// Custom header
 llxHeader('', 'My Dashboard');
 
-// Hide left menu and make FULL WIDTH
-echo '<style>
-#id-left { display: none !important; }
-#id-right { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
-.fiche { max-width: 100% !important; margin: 0 !important; padding: 0 !important; }
-body { background: #f8f9fa !important; }
-.login_block { width: 100% !important; }
+// --- AGGRESSIVE CSS RESET & FLUID LAYOUT ---
+print '<style>
+    /* 1. HIDE ALL DOLIBARR CHROME */
+    #id-top, .side-nav, .side-nav-vert, #id-left, .login_block, .tmenudiv, .nav-bar, header {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
+    /* 2. RESET PARENT CONTAINERS */
+    html, body {
+        background-color: #f8f9fa !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        overflow-x: hidden !important;
+    }
+
+    #id-container {
+        display: block !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* 3. FORCE CONTENT TO FULL VIEWPORT WIDTH */
+    #id-right, .id-right {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        flex: none !important;
+        display: block !important;
+    }
+
+    .fiche { width: 100% !important; max-width: 100% !important; margin: 0 !important; }
+
+    /* 4. CUSTOM FLUID CONTAINER */
+    .ben-container { 
+        width: 98%;        /* Occupy 98% of the screen */
+        max-width: none;   /* Remove width limit */
+        margin: 0 auto; 
+        padding: 30px 0; 
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    
+    /* DASHBOARD CARDS */
+    .status-card { 
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+        color: white; 
+        padding: 35px; 
+        border-radius: 12px; 
+        margin-bottom: 30px; 
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); 
+    }
+    
+    .stat-box { 
+        background: white; 
+        padding: 30px; 
+        border-radius: 12px; 
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
+        text-align: center; 
+        border-bottom: 5px solid #eee; 
+        transition: transform 0.2s; 
+        height: 100%; /* Even height */
+        box-sizing: border-box;
+    }
+    .stat-box:hover { transform: translateY(-3px); }
+    
+    .menu-grid { 
+        display: grid; 
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+        gap: 25px; 
+        margin-top: 40px; 
+    }
+    
+    .menu-card { 
+        background: white; 
+        padding: 40px 30px; 
+        border-radius: 12px; 
+        text-align: center; 
+        text-decoration: none; 
+        color: #333; 
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05); 
+        transition: transform 0.2s; 
+        border: 1px solid #f0f0f0; 
+        display: block;
+    }
+    .menu-card:hover { 
+        transform: translateY(-5px); 
+        border-color: #667eea; 
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1); 
+    }
+
+    /* LOGOUT BUTTON STYLE */
+    .btn-logout {
+        background: white; 
+        color: #dc3545; 
+        border: 1px solid #dc3545; 
+        padding: 12px 25px; 
+        border-radius: 30px; 
+        text-decoration: none; 
+        font-weight: bold; 
+        font-size: 15px; 
+        display: inline-flex; 
+        align-items: center; 
+        gap: 5px; 
+        transition: all 0.2s;
+    }
+    .btn-logout:hover { 
+        background: #dc3545; 
+        color: white; 
+    }
 </style>';
 
-print '<div style="width: 100%; padding: 30px; box-sizing: border-box;">';
+print '<div class="ben-container">';
 
-print '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">';
-print '<div>';
-print '<h1 style="margin: 0;">👋 Welcome, '.dol_escape_htmltag($subscriber->firstname).'!</h1>';
-print '<p style="color: #666; margin: 5px 0 0 0;">Subscriber ID: '.dol_escape_htmltag($subscriber->ref).'</p>';
-print '</div>';
-print '<a class="butAction" href="product_catalog.php">🛒 Browse Packages </a>';
-print '</div>';
+// 1. Welcome Header (Updated with Logout)
+print '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding: 0 10px;">';
+print '<div><h1 style="margin: 0; color: #2c3e50; font-size: 32px;">👋 Welcome, '.dol_escape_htmltag($subscriber->firstname).'!</h1><p style="color: #7f8c8d; margin: 5px 0 0 0; font-size: 16px;">Subscriber ID: '.dol_escape_htmltag($subscriber->ref).'</p></div>';
 
-print '<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">';
-print '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">';
-
-print '<div>';
-print '<div style="font-size: 14px; opacity: 0.9; margin-bottom: 5px;">Subscription Plan</div>';
-print '<div style="font-size: 24px; font-weight: bold;">'.dol_escape_htmltag($subscriber->subscription_type ?: 'Guest').'</div>';
-print '</div>';
-
-print '<div>';
-print '<div style="font-size: 14px; opacity: 0.9; margin-bottom: 5px;">Status</div>';
-print '<div style="display: inline-block; padding: 8px 16px; background: rgba(255,255,255,0.2); border-radius: 20px; font-weight: bold; font-size: 16px;">';
-print dol_escape_htmltag($subscriber->subscription_status ?: 'Active');
-print '</div>';
-print '</div>';
-
-if (!empty($subscriber->subscription_end_date)) {
-    print '<div>';
-    print '<div style="font-size: 14px; opacity: 0.9; margin-bottom: 5px;">Valid Until</div>';
-    print '<div style="font-size: 20px; font-weight: bold;">'.dol_print_date($db->jdate($subscriber->subscription_end_date), 'day').'</div>';
-    print '</div>';
-}
-
-print '<div>';
-print '<div style="font-size: 14px; opacity: 0.9; margin-bottom: 5px;">Household Size</div>';
-print '<div style="font-size: 24px; font-weight: bold;">'.($subscriber->household_size ?: 'N/A').' '.($subscriber->household_size == 1 ? 'person' : 'people').'</div>';
-print '</div>';
-print '<div style="text-align: center; margin-top: 15px;">';
-print '<a href="renew_subscription.php" style="color: white; font-size: 14px; text-decoration: underline;">Manage Subscription →</a>';
-print '</div>';
-print '</div>';
-print '</div>';
-
-// Stats query
-$sql_stats = "SELECT 
-    COUNT(*) as total_orders,
-    SUM(CASE WHEN status IN ('Prepared', 'Packed', 'Ready') THEN 1 ELSE 0 END) as active_orders,
-    SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END) as delivered_orders,
-    SUM(total_amount) as total_spent
-    FROM ".MAIN_DB_PREFIX."foodbank_distributions
-    WHERE fk_beneficiary = ".(int)$subscriber_id;
-
-$res_stats = $db->query($sql_stats);
-
-// Initialize default stats
-$stats = new stdClass();
-$stats->total_orders = 0;
-$stats->active_orders = 0;
-$stats->delivered_orders = 0;
-$stats->total_spent = 0;
-
-if ($res_stats) {
-    $stats = $db->fetch_object($res_stats);
-}
-
-print '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">';
-
-print '<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">';
-print '<div style="font-size: 14px; opacity: 0.9; margin-bottom: 5px;">Total Orders</div>';
-print '<div style="font-size: 48px; font-weight: bold;">'.($stats->total_orders ?? 0).'</div>';
-print '</div>';
-
-print '<div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">';
-print '<div style="font-size: 14px; opacity: 0.9; margin-bottom: 5px;">Active Orders</div>';
-print '<div style="font-size: 48px; font-weight: bold;">'.($stats->active_orders ?? 0).'</div>';
-print '</div>';
-
-print '<div style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">';
-print '<div style="font-size: 14px; opacity: 0.9; margin-bottom: 5px;">Delivered</div>';
-print '<div style="font-size: 48px; font-weight: bold;">'.($stats->delivered_orders ?? 0).'</div>';
-print '</div>';
-
-print '<div style="background: linear-gradient(135deg, #30cfd0 0%, #330867 100%); color: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">';
-print '<div style="font-size: 14px; opacity: 0.9; margin-bottom: 5px;">Total Spent</div>';
-print '<div style="font-size: 36px; font-weight: bold;">₦'.number_format($stats->total_spent ?? 0, 0).'</div>';
-print '</div>';
+// Right Side Actions Wrapper
+print '<div style="display: flex; gap: 15px; align-items: center;">';
+print '<a href="product_catalog.php" class="button" style="background:#667eea; color:white; padding:12px 30px; border-radius:30px; box-shadow:0 4px 12px rgba(102,126,234,0.3); font-weight:bold; text-decoration:none; font-size: 15px;">🛒 Order Food</a>';
+print '<a href="'.DOL_URL_ROOT.'/user/logout.php" class="btn-logout"><span>🚪</span> Logout</a>';
+print '</div>'; // End Right Side
 
 print '</div>';
 
-print '<h2>🎉 Welcome to Your Dashboard!</h2>';
-print '<p style="color: #666; font-size: 16px;">Browse our available packages and place orders below.</p>';
+// 2. Subscription Card
+print '<div class="status-card">';
+print '<div style="display: flex; justify-content: space-between; align-items: center;">';
+print '<div><div style="opacity:0.8; font-size:14px; text-transform:uppercase; letter-spacing:1px; margin-bottom: 5px;">Current Plan</div><div style="font-size:32px; font-weight:bold;">'.($subscriber->subscription_type ?: 'Guest').'</div></div>';
+print '<div><div style="opacity:0.8; font-size:14px; text-transform:uppercase; letter-spacing:1px; margin-bottom: 5px;">Status</div><div style="font-size:20px; font-weight:bold; background:rgba(255,255,255,0.2); padding:5px 20px; border-radius:30px;">'.($subscriber->subscription_status ?: 'Active').'</div></div>';
+print '<a href="renew_subscription.php" style="color:white; text-decoration:none; background:rgba(0,0,0,0.2); padding:12px 25px; border-radius:30px; font-weight:bold;">Manage Plan →</a>';
+print '</div></div>';
 
-print '<div style="margin-top: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">';
+// 3. Stats Calculation
+$stats = $db->fetch_object($db->query("SELECT 
+    COUNT(*) as total, 
+    SUM(CASE WHEN status='Delivered' THEN 1 ELSE 0 END) as delivered,
+    SUM(CASE WHEN status IN ('Prepared','In Transit') THEN 1 ELSE 0 END) as active,
+    SUM(total_amount) as spent
+    FROM ".MAIN_DB_PREFIX."foodbank_distributions WHERE fk_beneficiary=".$subscriber->rowid));
 
-print '<a href="product_catalog.php" style="display: block; padding: 25px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; text-decoration: none; color: inherit; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#667eea\'; this.style.transform=\'translateY(-3px)\'; this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" onmouseout="this.style.borderColor=\'#e0e0e0\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'none\'">';
-print '<div style="font-size: 48px; margin-bottom: 15px;">🛒</div>';
-print '<h3 style="margin: 0 0 8px 0; font-size: 20px;">Browse Packages </h3>';
-print '<p style="margin: 0; color: #666; font-size: 14px;">View available paackages</p>';
-print '</a>';
+// 4. Stats Grid
+print '<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 25px;">';
+print '<div class="stat-box" style="border-bottom-color: #667eea;"><div style="font-size:13px; color:#888; margin-bottom:10px; font-weight:bold;">TOTAL ORDERS</div><div style="font-size:36px; font-weight:800; color:#333;">'.($stats->total ?: 0).'</div></div>';
+print '<div class="stat-box" style="border-bottom-color: #f1c40f;"><div style="font-size:13px; color:#888; margin-bottom:10px; font-weight:bold;">ACTIVE</div><div style="font-size:36px; font-weight:800; color:#333;">'.($stats->active ?: 0).'</div></div>';
+print '<div class="stat-box" style="border-bottom-color: #2ecc71;"><div style="font-size:13px; color:#888; margin-bottom:10px; font-weight:bold;">DELIVERED</div><div style="font-size:36px; font-weight:800; color:#333;">'.($stats->delivered ?: 0).'</div></div>';
+print '<div class="stat-box" style="border-bottom-color: #9b59b6;"><div style="font-size:13px; color:#888; margin-bottom:10px; font-weight:bold;">TOTAL SPENT</div><div style="font-size:36px; font-weight:800; color:#333;">₦'.number_format($stats->spent ?: 0).'</div></div>';
+print '</div>';
 
-print '<a href="view_cart.php" style="display: block; padding: 25px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; text-decoration: none; color: inherit; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#667eea\'; this.style.transform=\'translateY(-3px)\'; this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" onmouseout="this.style.borderColor=\'#e0e0e0\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'none\'">';
-print '<div style="font-size: 48px; margin-bottom: 15px;">🛍️</div>';
-print '<h3 style="margin: 0 0 8px 0; font-size: 20px;">My Cart</h3>';
-print '<p style="margin: 0; color: #666; font-size: 14px;">Manage your cart</p>';
-print '</a>';
-
-print '<a href="my_orders.php" style="display: block; padding: 25px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; text-decoration: none; color: inherit; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#667eea\'; this.style.transform=\'translateY(-3px)\'; this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" onmouseout="this.style.borderColor=\'#e0e0e0\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'none\'">';
-print '<div style="font-size: 48px; margin-bottom: 15px;">📦</div>';
-print '<h3 style="margin: 0 0 8px 0; font-size: 20px;">My Orders</h3>';
-print '<p style="margin: 0; color: #666; font-size: 14px;">View order history</p>';
-print '</a>';
-
-print '<a href="my_profile.php" style="display: block; padding: 25px; background: white; border: 2px solid #e0e0e0; border-radius: 8px; text-decoration: none; color: inherit; transition: all 0.2s;" onmouseover="this.style.borderColor=\'#667eea\'; this.style.transform=\'translateY(-3px)\'; this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.1)\'" onmouseout="this.style.borderColor=\'#e0e0e0\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'none\'">';
-print '<div style="font-size: 48px; margin-bottom: 15px;">👤</div>';
-print '<h3 style="margin: 0 0 8px 0; font-size: 20px;">My Profile</h3>';
-print '<p style="margin: 0; color: #666; font-size: 14px;">Update your info</p>';
-print '</a>';
-
+// 5. Quick Links Menu
+print '<div class="menu-grid">';
+print '<a href="product_catalog.php" class="menu-card"><div style="font-size:48px; margin-bottom:15px;">🛍️</div><div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">Browse Packages</div><div style="color:#888; font-size: 14px;">View available food boxes</div></a>';
+print '<a href="view_cart.php" class="menu-card"><div style="font-size:48px; margin-bottom:15px;">🛒</div><div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">My Cart</div><div style="color:#888; font-size: 14px;">Manage your selection</div></a>';
+print '<a href="my_orders.php" class="menu-card"><div style="font-size:48px; margin-bottom:15px;">📦</div><div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">My Orders</div><div style="color:#888; font-size: 14px;">Track history</div></a>';
+print '<a href="my_profile.php" class="menu-card"><div style="font-size:48px; margin-bottom:15px;">👤</div><div style="font-size: 18px; font-weight: bold; margin-bottom: 5px;">My Profile</div><div style="color:#888; font-size: 14px;">Update info</div></a>';
 print '</div>';
 
 print '</div>';
-
 llxFooter();
 ?>
