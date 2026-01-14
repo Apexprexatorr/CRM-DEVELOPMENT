@@ -15,8 +15,17 @@ class Beneficiary extends CommonObject
     public $phone;
     public $address;
     
-    // NEW FIELDS
-    public $household_size; 
+    // NEW EXTENDED FIELDS
+    public $gender;
+    public $dob;
+    public $city;
+    public $state;
+    public $family_size;        // Matches 'family_size' in DB
+    public $household_size;     // Matches 'household_size' in DB (Keeping for compatibility)
+    public $employment_status;
+    public $identification_number;
+
+    // SUBSCRIPTION FIELDS
     public $subscription_type;
     public $subscription_status;
     public $subscription_start_date;
@@ -31,10 +40,11 @@ class Beneficiary extends CommonObject
     {
         $this->db = $db;
         $this->entity = isset($GLOBALS['conf']->entity) ? (int) $GLOBALS['conf']->entity : 1;
-        $this->household_size = 1;
+        $this->family_size = 1;
         $this->subscription_status = 'Pending';
     }
 
+    // CREATE
     public function create($user = null, $notrigger = false)
     {
         if (empty($this->ref)) {
@@ -44,18 +54,32 @@ class Beneficiary extends CommonObject
         $this->db->begin();
 
         $sql = "INSERT INTO " . MAIN_DB_PREFIX . $this->table_element . " (";
-        $sql .= "ref, firstname, lastname, email, phone, address, household_size, note, ";
+        // Standard info
+        $sql .= "ref, firstname, lastname, email, phone, address, city, state, note, ";
+        // Extended info
+        $sql .= "gender, dob, identification_number, family_size, employment_status, ";
+        // Subscription info
         $sql .= "subscription_type, subscription_status, subscription_start_date, subscription_end_date, subscription_fee, ";
+        // System info
         $sql .= "entity, datec";
         $sql .= ") VALUES (";
+        
         $sql .= "'" . $this->db->escape($this->ref) . "',";
         $sql .= "'" . $this->db->escape($this->firstname) . "',";
         $sql .= "'" . $this->db->escape($this->lastname) . "',";
         $sql .= "'" . $this->db->escape($this->email) . "',";
         $sql .= "'" . $this->db->escape($this->phone) . "',";
         $sql .= "'" . $this->db->escape($this->address) . "',";
-        $sql .= (int)$this->household_size . ",";
+        $sql .= "'" . $this->db->escape($this->city) . "',";
+        $sql .= "'" . $this->db->escape($this->state) . "',";
         $sql .= "'" . $this->db->escape($this->note) . "',";
+
+        // Extended Values
+        $sql .= "'" . $this->db->escape($this->gender) . "',";
+        $sql .= ($this->dob ? "'" . $this->db->escape($this->dob) . "'" : "NULL") . ",";
+        $sql .= "'" . $this->db->escape($this->identification_number) . "',";
+        $sql .= (int)$this->family_size . ",";
+        $sql .= "'" . $this->db->escape($this->employment_status) . "',";
         
         // Subscription Values
         $sql .= ($this->subscription_type ? "'" . $this->db->escape($this->subscription_type) . "'" : "NULL") . ",";
@@ -79,6 +103,7 @@ class Beneficiary extends CommonObject
         }
     }
 
+    // FETCH
     public function fetch($id)
     {
         $sql = "SELECT * FROM " . MAIN_DB_PREFIX . $this->table_element . " WHERE rowid=" . (int)$id;
@@ -91,10 +116,18 @@ class Beneficiary extends CommonObject
             $this->email = $obj->email;
             $this->phone = $obj->phone;
             $this->address = $obj->address;
-            $this->household_size = $obj->household_size;
+            $this->city = $obj->city;
+            $this->state = $obj->state;
             $this->note = $obj->note;
             
-            // Fetch Subscription Fields
+            // Extended
+            $this->gender = $obj->gender;
+            $this->dob = $obj->dob;
+            $this->identification_number = $obj->identification_number;
+            $this->family_size = $obj->family_size;
+            $this->employment_status = $obj->employment_status;
+            
+            // Subscription
             $this->subscription_type = $obj->subscription_type;
             $this->subscription_status = $obj->subscription_status;
             $this->subscription_start_date = $obj->subscription_start_date;
@@ -107,6 +140,7 @@ class Beneficiary extends CommonObject
         return 0;
     }
 
+    // UPDATE
     public function update($user = null, $notrigger = false)
     {
         $this->db->begin();
@@ -117,10 +151,18 @@ class Beneficiary extends CommonObject
         $sql .= "email = '" . $this->db->escape($this->email) . "',";
         $sql .= "phone = '" . $this->db->escape($this->phone) . "',";
         $sql .= "address = '" . $this->db->escape($this->address) . "',";
-        $sql .= "household_size = " . (int)$this->household_size . ",";
+        $sql .= "city = '" . $this->db->escape($this->city) . "',";
+        $sql .= "state = '" . $this->db->escape($this->state) . "',";
         $sql .= "note = '" . $this->db->escape($this->note) . "',";
+
+        // Extended
+        $sql .= "gender = '" . $this->db->escape($this->gender) . "',";
+        $sql .= "dob = " . ($this->dob ? "'" . $this->db->escape($this->dob) . "'" : "NULL") . ",";
+        $sql .= "identification_number = '" . $this->db->escape($this->identification_number) . "',";
+        $sql .= "family_size = " . (int)$this->family_size . ",";
+        $sql .= "employment_status = '" . $this->db->escape($this->employment_status) . "',";
         
-        // Update Subscription Fields
+        // Subscription
         $sql .= "subscription_type = " . ($this->subscription_type ? "'" . $this->db->escape($this->subscription_type) . "'" : "NULL") . ",";
         $sql .= "subscription_status = '" . $this->db->escape($this->subscription_status) . "',";
         $sql .= "subscription_fee = " . (float)$this->subscription_fee;
@@ -152,7 +194,6 @@ class Beneficiary extends CommonObject
 
     public function getNextRef()
     {
-        // Simple sequential numbering BEN2025-0001
         $sql = "SELECT MAX(rowid) as maxid FROM " . MAIN_DB_PREFIX . $this->table_element;
         $res = $this->db->query($sql);
         $obj = $this->db->fetch_object($res);

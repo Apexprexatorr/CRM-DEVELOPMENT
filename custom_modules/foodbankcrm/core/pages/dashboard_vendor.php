@@ -1,29 +1,31 @@
 <?php
 /**
- * Vendor Dashboard - ENTREPRENEUR FOCUSED (Inventory/Supply Terminology)
+ * VENDOR DASHBOARD (FINAL VERIFIED)
+ * Logic: Checks Status -> If Pending, show Lock Screen. If Active, show Entrepreneur Dashboard.
  */
 define('NOTOKENRENEWAL', 1);
 define('NOCSRFCHECK', 1);
 
 require_once dirname(__DIR__, 4) . '/main.inc.php';
-require_once DOL_DOCUMENT_ROOT.'/custom/foodbankcrm/class/permissions.class.php';
+require_once dirname(__DIR__, 3) . '/foodbankcrm/class/permissions.class.php';
 
 global $user, $db, $conf;
 
-// Reset Redirect Flag
+// Reset Redirect Flag to prevent loops
 if (isset($_SESSION['foodbank_checked'])) {
     $_SESSION['foodbank_checked'] = false;
 }
 
 $langs->load("admin");
 
-// Security Check
+// 1. SECURITY CHECK: Is User a Vendor?
 $user_is_vendor = FoodbankPermissions::isVendor($user, $db);
 if (!$user_is_vendor) {
     accessforbidden('You do not have access to the vendor dashboard.');
 }
 
-// Fetch Vendor Data
+// 2. FETCH VENDOR DETAILS & STATUS
+// We query by fk_user because the user just logged in with their User Account
 $sql = "SELECT * FROM ".MAIN_DB_PREFIX."foodbank_vendors WHERE fk_user = ".(int)$user->id;
 $res = $db->query($sql);
 
@@ -36,90 +38,50 @@ if (!$res || $db->num_rows($res) == 0) {
 
 $vendor = $db->fetch_object($res);
 $vendor_id = $vendor->rowid;
+$vendor_status = $vendor->status; // Critical: Get 'Pending' or 'Active'
 
 llxHeader('', 'Vendor Dashboard');
 
-// --- MODERN CSS & RESET ---
+// --- CSS STYLES ---
 print '<style>
-    /* 1. HIDE DOLIBARR CHROME */
-    #id-top, .side-nav, .side-nav-vert, #id-left, .login_block, .tmenudiv, .nav-bar, header {
-        display: none !important;
-    }
+    /* HIDE DOLIBARR CHROME */
+    #id-top, .side-nav, .side-nav-vert, #id-left, .login_block, .tmenudiv, .nav-bar, header { display: none !important; }
 
-    /* 2. RESET LAYOUT */
-    html, body {
-        background-color: #f8f9fa !important;
-        margin: 0 !important;
-        width: 100% !important;
-        overflow-x: hidden !important;
-    }
-
-    #id-right, .id-right {
-        margin: 0 !important;
-        width: 100vw !important;
-        max-width: 100vw !important;
-        padding: 0 !important;
-    }
-    
+    /* RESET LAYOUT */
+    html, body { background-color: #f8f9fa !important; margin: 0 !important; width: 100% !important; overflow-x: hidden !important; }
+    #id-right, .id-right { margin: 0 !important; width: 100vw !important; max-width: 100vw !important; padding: 0 !important; }
     .fiche { max-width: 100% !important; margin: 0 !important; }
 
-    /* 3. MAIN CONTAINER */
-    .vendor-container { 
-        width: 95%; 
-        max-width: 1200px; 
-        margin: 0 auto; 
-        padding: 40px 20px; 
-        font-family: "Segoe UI", sans-serif; 
+    /* DASHBOARD CONTAINER */
+    .vendor-container { width: 95%; max-width: 1200px; margin: 0 auto; padding: 40px 20px; font-family: "Segoe UI", sans-serif; }
+
+    /* LOCKED SCREEN (GATEKEEPER) */
+    .locked-box { 
+        background: white; max-width: 600px; margin: 60px auto; padding: 50px; 
+        border-radius: 12px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.05); 
+        border-top: 5px solid #f6ad55; 
+    }
+    .status-badge-locked { 
+        background: #fffaf0; color: #c05621; padding: 8px 20px; border-radius: 30px; 
+        font-weight: bold; text-transform: uppercase; letter-spacing: 1px; font-size: 12px;
+        display: inline-block; margin-bottom: 20px; border: 1px solid #fbd38d;
     }
 
-    /* 4. CARDS & WIDGETS */
+    /* ACTIVE DASHBOARD WIDGETS */
     .dashboard-card {
-        background: white;
-        padding: 25px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        border: 1px solid #f0f0f0;
-        transition: transform 0.2s;
-        text-decoration: none;
-        color: inherit;
-        display: block;
+        background: white; padding: 25px; border-radius: 12px; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #f0f0f0; 
+        transition: transform 0.2s; text-decoration: none; color: inherit; display: block;
     }
-    .dashboard-card:hover {
-        transform: translateY(-5px);
-        border-color: #667eea;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-    }
+    .dashboard-card:hover { transform: translateY(-5px); border-color: #667eea; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
 
-    /* 5. STATS GRID */
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 20px;
-        margin-bottom: 30px;
-    }
-    .stat-card {
-        color: white;
-        padding: 30px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 30px; }
+    .stat-card { color: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     
-    /* 6. BUTTONS */
-    .btn-primary {
-        background: #667eea; color: white; padding: 12px 25px; border-radius: 30px; 
-        text-decoration: none; font-weight: bold; box-shadow: 0 4px 12px rgba(102,126,234,0.3);
-        display: inline-block;
-    }
-    
-    .btn-logout {
-        background: white; color: #dc3545; border: 1px solid #dc3545; 
-        padding: 10px 20px; border-radius: 30px; text-decoration: none; 
-        font-weight: bold; display: inline-flex; align-items: center; gap: 5px;
-        transition: all 0.2s;
-    }
+    .btn-primary { background: #667eea; color: white; padding: 12px 25px; border-radius: 30px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 12px rgba(102,126,234,0.3); display: inline-block; }
+    .btn-logout { background: white; color: #dc3545; border: 1px solid #dc3545; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s; }
     .btn-logout:hover { background: #dc3545; color: white; }
 
-    /* 7. TABLES */
     .modern-table { width: 100%; border-collapse: collapse; }
     .modern-table th { text-align: left; padding: 15px; color: #888; border-bottom: 2px solid #eee; font-size: 13px; text-transform: uppercase; }
     .modern-table td { padding: 15px; border-bottom: 1px solid #f0f0f0; color: #333; }
@@ -127,6 +89,31 @@ print '<style>
 </style>';
 
 print '<div class="vendor-container">';
+
+// ============================================================
+// 3. THE GATEKEEPER LOGIC (Block Pending Vendors)
+// ============================================================
+if ($vendor_status == 'Pending') {
+    print '<div class="locked-box">';
+    print '<span class="status-badge-locked">Application Under Review</span>';
+    print '<h1 style="color:#2d3748; margin-bottom:15px;">Welcome, '.dol_escape_htmltag($vendor->name).'</h1>';
+    print '<div style="font-size:60px; margin-bottom:20px;">⏳</div>';
+    print '<p style="color:#718096; font-size:18px; line-height:1.6;">';
+    print 'Thank you for registering as a vendor partner.<br>';
+    print 'Your application is currently being reviewed by our procurement team.';
+    print '</p>';
+    print '<p style="color:#718096; margin-top:20px; font-size:14px;">You will receive an email once your account is active.</p>';
+    print '<br><a href="'.DOL_URL_ROOT.'/user/logout.php" class="btn-logout">Log Out</a>';
+    print '</div>';
+    
+    print '</div>'; // End Container
+    llxFooter();
+    exit; // STOP EXECUTION HERE
+}
+
+// ============================================================
+// 4. ACTIVE VENDOR DASHBOARD (Entrepreneur View)
+// ============================================================
 
 // --- HEADER ---
 print '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">';
@@ -137,13 +124,13 @@ print '</div>';
 
 // Header Actions
 print '<div style="display: flex; gap: 15px; align-items: center;">';
-// CHANGED: Label is now "Add Inventory" (Entrepreneur style)
 print '<a href="create_donation.php" class="btn-primary">📦 Add Inventory</a>';
 print '<a href="'.DOL_URL_ROOT.'/user/logout.php" class="btn-logout"><span>🚪</span> Logout</a>';
 print '</div>';
 print '</div>';
 
 // --- STATS CALCULATION ---
+// We check the donations/inventory table for this specific vendor
 $sql_stats = "SELECT 
     COUNT(DISTINCT d.rowid) as total_batches,
     COALESCE(SUM(d.quantity), 0) as total_quantity,
@@ -181,7 +168,6 @@ print '</div>';
 print '</div>'; // End Stats Grid
 
 // --- QUICK ACTIONS MENU ---
-// CHANGED: Titles are now Business-Focused
 print '<h2 style="margin: 40px 0 20px 0; color: #2c3e50;">⚡ Management Console</h2>';
 print '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">';
 

@@ -10,7 +10,7 @@ class VendorFB extends CommonObject
     public $id;
     public $ref;
     public $name;
-    public $category;       // Added
+    public $category;
     public $contact_person;
     public $contact_email;
     public $contact_phone;
@@ -18,7 +18,16 @@ class VendorFB extends CommonObject
     public $email;
     public $address;
     public $description;
-    public $status;         // Added
+    public $status;
+    
+    // NEW EXTENDED FIELDS
+    public $registration_number;
+    public $tax_id;
+    public $website;
+    public $bank_name;
+    public $bank_account_number;
+    public $payment_terms;
+
     public $entity;
 
     public function __construct($db)
@@ -28,6 +37,7 @@ class VendorFB extends CommonObject
         $this->status = 'Active'; // Default
     }
 
+    // CREATE
     public function create($user = null, $notrigger = false)
     {
         if (empty($this->ref)) {
@@ -37,9 +47,15 @@ class VendorFB extends CommonObject
         $this->db->begin();
 
         $sql = "INSERT INTO " . MAIN_DB_PREFIX . $this->table_element . " (";
+        // Standard
         $sql .= "ref, name, category, contact_person, contact_email, contact_phone, ";
-        $sql .= "phone, email, address, description, status, entity, date_creation";
+        $sql .= "phone, email, address, description, status, ";
+        // Extended
+        $sql .= "registration_number, tax_id, website, bank_name, bank_account_number, payment_terms, ";
+        // System
+        $sql .= "entity, date_creation";
         $sql .= ") VALUES (";
+        
         $sql .= "'" . $this->db->escape($this->ref) . "',";
         $sql .= "'" . $this->db->escape($this->name) . "',";
         $sql .= "'" . $this->db->escape($this->category) . "',";
@@ -51,6 +67,15 @@ class VendorFB extends CommonObject
         $sql .= "'" . $this->db->escape($this->address) . "',";
         $sql .= "'" . $this->db->escape($this->description) . "',";
         $sql .= "'" . $this->db->escape($this->status) . "',";
+
+        // Extended Values
+        $sql .= "'" . $this->db->escape($this->registration_number) . "',";
+        $sql .= "'" . $this->db->escape($this->tax_id) . "',";
+        $sql .= "'" . $this->db->escape($this->website) . "',";
+        $sql .= "'" . $this->db->escape($this->bank_name) . "',";
+        $sql .= "'" . $this->db->escape($this->bank_account_number) . "',";
+        $sql .= "'" . $this->db->escape($this->payment_terms) . "',";
+
         $sql .= (int)$this->entity . ",";
         $sql .= "NOW()";
         $sql .= ")";
@@ -66,6 +91,7 @@ class VendorFB extends CommonObject
         }
     }
 
+    // FETCH
     public function fetch($id)
     {
         $sql = "SELECT * FROM " . MAIN_DB_PREFIX . $this->table_element . " WHERE rowid=" . (int)$id;
@@ -83,11 +109,21 @@ class VendorFB extends CommonObject
             $this->address = $obj->address;
             $this->description = $obj->description;
             $this->status = $obj->status;
+            
+            // Extended
+            $this->registration_number = $obj->registration_number;
+            $this->tax_id = $obj->tax_id;
+            $this->website = $obj->website;
+            $this->bank_name = $obj->bank_name;
+            $this->bank_account_number = $obj->bank_account_number;
+            $this->payment_terms = $obj->payment_terms;
+            
             return 1;
         }
         return 0;
     }
 
+    // UPDATE
     public function update($user = null, $notrigger = false)
     {
         $this->db->begin();
@@ -102,7 +138,16 @@ class VendorFB extends CommonObject
         $sql .= "email = '" . $this->db->escape($this->email) . "',";
         $sql .= "address = '" . $this->db->escape($this->address) . "',";
         $sql .= "description = '" . $this->db->escape($this->description) . "',";
-        $sql .= "status = '" . $this->db->escape($this->status) . "'";
+        $sql .= "status = '" . $this->db->escape($this->status) . "',";
+
+        // Extended
+        $sql .= "registration_number = '" . $this->db->escape($this->registration_number) . "',";
+        $sql .= "tax_id = '" . $this->db->escape($this->tax_id) . "',";
+        $sql .= "website = '" . $this->db->escape($this->website) . "',";
+        $sql .= "bank_name = '" . $this->db->escape($this->bank_name) . "',";
+        $sql .= "bank_account_number = '" . $this->db->escape($this->bank_account_number) . "',";
+        $sql .= "payment_terms = '" . $this->db->escape($this->payment_terms) . "'";
+        
         $sql .= " WHERE rowid = " . (int)$this->id;
 
         if ($this->db->query($sql)) {
